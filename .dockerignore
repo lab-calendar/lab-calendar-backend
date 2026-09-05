@@ -3,5 +3,4 @@ build
 .idea
 .vscode
 *.iml
-gradle/wrapper/gradle-wrapper.jar
 src/main/resources/application-local.yml
