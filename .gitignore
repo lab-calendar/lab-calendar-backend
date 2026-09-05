@@ -38,4 +38,5 @@ out/
 
 ### App-specific ###
 src/main/resources/application-local.yml
+deploy/.env
 
