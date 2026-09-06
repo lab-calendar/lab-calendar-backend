@@ -35,7 +35,9 @@ docker compose run --rm --entrypoint /bin/sh certbot -c "\
   rm -rf /etc/letsencrypt/renewal/${DOMAINS[0]}.conf"
 
 echo "### Requesting real certificate ..."
-docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+# --entrypoint overrides the service's renew-loop entrypoint (see
+# docker-compose.yml) so this runs certbot directly instead of it.
+docker compose run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
     $domain_args \
     --email "$CERTBOT_EMAIL" \
     --rsa-key-size $RSA_KEY_SIZE \
