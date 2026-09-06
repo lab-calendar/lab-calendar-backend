@@ -18,30 +18,29 @@ for domain in "${DOMAINS[@]}"; do
 done
 
 echo "### Creating dummy certificate for ${DOMAINS[0]} ..."
-docker compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint /bin/sh certbot -c "\
   mkdir -p /etc/letsencrypt/live/${DOMAINS[0]} && \
   openssl req -x509 -nodes -newkey rsa:$RSA_KEY_SIZE -days 1 \
     -keyout /etc/letsencrypt/live/${DOMAINS[0]}/privkey.pem \
     -out /etc/letsencrypt/live/${DOMAINS[0]}/fullchain.pem \
-    -subj '/CN=localhost'" certbot
+    -subj '/CN=localhost'"
 
 echo "### Starting nginx ..."
 docker compose up -d nginx
 
 echo "### Deleting dummy certificate ..."
-docker compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint /bin/sh certbot -c "\
   rm -rf /etc/letsencrypt/live/${DOMAINS[0]} && \
   rm -rf /etc/letsencrypt/archive/${DOMAINS[0]} && \
-  rm -rf /etc/letsencrypt/renewal/${DOMAINS[0]}.conf" certbot
+  rm -rf /etc/letsencrypt/renewal/${DOMAINS[0]}.conf"
 
 echo "### Requesting real certificate ..."
-docker compose run --rm --entrypoint "\
-  certbot certonly --webroot -w /var/www/certbot \
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
     $domain_args \
-    --email $CERTBOT_EMAIL \
+    --email "$CERTBOT_EMAIL" \
     --rsa-key-size $RSA_KEY_SIZE \
     --agree-tos \
-    --non-interactive" certbot
+    --non-interactive
 
 echo "### Reloading nginx ..."
 docker compose exec nginx nginx -s reload
