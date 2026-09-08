@@ -1,0 +1,43 @@
+name: Verify Backend
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  migration-tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: kan28_test
+          MYSQL_ROOT_PASSWORD: test-only-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: H2 migration and JPA validation
+        run: ./gradlew test bootJar --no-daemon
+      - name: MySQL migration and JPA validation
+        run: ./gradlew test --rerun-tasks --no-daemon
+        env:
+          MIGRATION_TEST_URL: jdbc:mysql://127.0.0.1:3306/kan28_test?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+          MIGRATION_TEST_DRIVER: com.mysql.cj.jdbc.Driver
+          MIGRATION_TEST_USER: root
+          MIGRATION_TEST_PASSWORD: test-only-password
+          MIGRATION_TEST_TABLE_OPTIONS: ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs
