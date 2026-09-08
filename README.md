@@ -2,6 +2,10 @@
 
 Backend API server for Lab Calendar
 
+## Design documents
+
+- [ERD 및 DB 스키마 설계 (KAN-27, 팀 리뷰용 초안)](docs/database-design.md)
+
 ## Tech Stack
 
 - Java 17
