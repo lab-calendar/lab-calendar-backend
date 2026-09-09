@@ -1,6 +1,6 @@
 # DB 마이그레이션 운영 및 검증
 
-KAN-28은 KAN-27의 병합된 저장 모델을 Flyway로 생성한다. 초기 파일은 `src/main/resources/db/migration/V1.1.0.001__init.sql`이다. 버전은 Jira에서 정한 스프린트 규칙이며 다음 파일은 `V1.1.0.002__description.sql`처럼 작성한다.
+KAN-28은 KAN-27의 병합된 저장 모델을 Flyway로 생성한다. 초기 파일은 `src/main/resources/db/migration/V1.1.0.001__init.sql`이다. 버전은 Jira에서 정한 스프린트 규칙이며 계약 확정 변경은 `V1.1.0.002__project_api_contract.sql`이며 다음 파일은 `V1.1.0.003__description.sql`처럼 작성한다.
 
 ## 기동 순서
 
@@ -34,7 +34,7 @@ KAN-28은 KAN-27의 병합된 저장 모델을 Flyway로 생성한다. 초기 �
 
 연결된 카테고리와 source의 의미 일치, VIEWER 응답 필터, 1차 API 시간 입력 거부는 서비스 계층의 책임이다. SQL CHECK는 날짜·시간 조합과 원천 FK 조합을 보장하지만 권한을 대신 구현하지 않는다.
 
-KAN-27을 그대로 따르므로 submission_type은 NOT NULL이다. API PR #6에서 선택값 여부가 합의되면 후속 마이그레이션으로 변경한다. 구글 usage_type의 허용값과 원본 ID 생성 방식은 미정이므로 임의의 ENUM/자동 생성 규칙을 넣지 않았다. 카드 테이블 생성은 구글 연동 구현 완료를 뜻하지 않는다.
+API PR #6의 확정에 따라 V1.1.0.002에서 submission_type을 NULL 허용으로 변경하고 lead_time_days에 0~182 범위 제약을 추가한다. 기본값 21은 유지한다. 기존 .001 파일은 변경하지 않는다. 기존 데이터에 182일 초과 값이 있으면 자동 보정하지 않고 적용을 실패시킨다. 반영 전 해당 데이터를 확인하고 합의된 값으로 조정해야 한다. 구글 usage_type의 허용값과 원본 ID 생성 방식은 미정이므로 임의의 ENUM/자동 생성 규칙을 넣지 않았다. 카드 테이블 생성은 구글 연동 구현 완료를 뜻하지 않는다.
 
 ## 테스트
 

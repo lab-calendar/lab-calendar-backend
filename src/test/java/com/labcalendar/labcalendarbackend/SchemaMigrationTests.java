@@ -21,7 +21,7 @@ class SchemaMigrationTests {
 
     @Test
     void startupMigratesAndRestartDoesNotRepeatSeedData() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.001");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.002");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForList("SELECT code FROM category ORDER BY sort_order", String.class))
                 .containsExactly("project", "lab", "card");
@@ -102,6 +102,21 @@ class SchemaMigrationTests {
             assertCheckViolation(() -> jdbc.update("UPDATE sync_log SET duration_ms=-1 WHERE id=501"));
             jdbc.update("DELETE FROM sync_log WHERE id=501");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sync_log_error WHERE sync_log_id=501", Integer.class)).isZero();
+        });
+    }
+
+    @Test
+    void optionalSubmissionAndLeadTimeBoundariesMatchApiContract() {
+        rollback(() -> {
+            jdbc.update("INSERT INTO research_project (id,name,end_date,created_at,updated_at) VALUES (601,'Conference','2027-04-30',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            assertThat(jdbc.queryForObject("SELECT submission_type FROM research_project WHERE id=601", String.class)).isNull();
+            assertThat(jdbc.queryForObject("SELECT lead_time_days FROM research_project WHERE id=601", Integer.class)).isEqualTo(21);
+            for (int days : new int[]{0, 10, 182}) {
+                jdbc.update("UPDATE research_project SET lead_time_days=? WHERE id=601", days);
+                assertThat(jdbc.queryForObject("SELECT lead_time_days FROM research_project WHERE id=601", Integer.class)).isEqualTo(days);
+            }
+            assertCheckViolation(() -> jdbc.update("UPDATE research_project SET lead_time_days=-1 WHERE id=601"));
+            assertCheckViolation(() -> jdbc.update("UPDATE research_project SET lead_time_days=183 WHERE id=601"));
         });
     }
 

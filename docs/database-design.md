@@ -150,9 +150,9 @@ card_expense에는 UNIQUE(source_document_id, source_record_id)를 둔다. 자�
 | --- | --- | --- |
 | id | BIGINT | PK |
 | name | VARCHAR(200) | 과제명 |
-| submission_type | VARCHAR(100) | 연차보고서/최종보고서/학회 신청 등 |
+| submission_type | VARCHAR(100) | NULL 허용, 선택 입력. 연차보고서/최종보고서 등 |
 | end_date | DATE | 마감일, 포함 |
-| lead_time_days | INT | 기본 21, 0 이상 정수. API 요청/응답 필드도 leadTimeDays(일) |
+| lead_time_days | INT | 기본 21, 0~182 정수. API 요청/응답 필드도 leadTimeDays(일) |
 | active | BOOLEAN | 기본 true |
 
 KAN-47~49에 맞춰 한 행은 제출 단계와 마감 하나를 관리한다. 동일 과제의 여러 제출 단계를 한 과제 아래 묶어야 한다면 project/milestone 분리가 필요하므로 리뷰에서 확인한다. 리드타임 규칙은 우선 행에 저장하며 별도 공통 규칙 테이블을 만들지 않는다. D-Day는 서울 기준 오늘과 마감일 차이로 계산하고 저장하지 않는다.
@@ -273,11 +273,11 @@ KAN-39 단건과 KAN-40 목록은 같은 DTO 조합 규칙을 사용한다. deta
 | GOOGLE_SYNC / card | card_expense.card_name | card_expense.purpose |
 | MANUAL / project 또는 card, 자유 입력 담당자 lab | event.title | event.manual_detail |
 
-수동 일정은 원천 FK가 없으므로 `event.manual_detail TEXT NULL`을 추가해 제출 단계/사용 목적/자유 입력 담당자 값을 보존한다. MANUAL에서만 사용하고 자동/구글 일정은 NULL이다. lab에 owner_member_id가 있으면 member.name을 우선하며 자유 입력 detail과 충돌하면 검증 오류를 반환한다. 이름만으로 member를 자동 연결하지 않는다. 카드 원천 title과 목적, 과제 원천 name과 submission_type 변경은 배치/동기화에서 함께 반영한다.
+수동 일정은 원천 FK가 없으므로 `event.manual_detail TEXT NULL`을 추가해 제출 단계/사용 목적/자유 입력 담당자 값을 보존한다. MANUAL에서만 사용하고 자동/구글 일정은 NULL이다. 현재 프론트는 owner_member_id를 보내지 않으며 수동 일정 detail은 manual_detail에 그대로 저장한다. 이후 KAN-41에서 담당자 ID 입력이 추가되면 member.name 우선 및 충돌 검증을 적용한다. 이름만으로 member를 자동 연결하지 않는다. 카드 원천 title과 목적, 과제 원천 name과 submission_type 변경은 배치/동기화에서 함께 반영한다.
 
-응답의 participants는 position 순 display_name 배열이며 현재 총원은 배열 길이다. 익명 인원을 지원한다면 별도 participantCount와 저장 모델이 필요하다. 현재 프론트의 이름 중복 제거는 동명이인을 표현하지 못하므로 member ID 기반 입력을 도입할지 KAN-41에서 합의해야 한다. DB에서는 동명이인을 허용한다.
+응답의 participants는 position 순 display_name 배열이며 현재 총원은 배열 길이다. 익명 인원을 지원한다면 별도 participantCount와 저장 모델이 필요하다. 현재 프론트의 이름 중복 제거는 임시로 유지한다. 동명이인 입력은 KAN-41의 member ID 기반 선택 UI와 함께 해결한다. DB에서는 동명이인을 허용한다.
 
-과제 요청/응답은 leadTimeDays를 사용한다. 기본 21, 저장/백엔드 검증은 0 이상 정수이며 7의 배수가 아닌 값도 허용한다. 현재 프론트의 leadTimeWeeks(1~26주)와는 아직 호환되지 않는다. 폼·타입·어댑터를 일 단위로 전환하고 0 허용 및 상한을 함께 확인해야 한다. 이번 PR은 프론트 코드 변경을 포함하지 않는다.
+과제 요청/응답은 leadTimeDays를 사용한다. 기본 21, 저장/백엔드 검증은 0~182일 정수이며 7의 배수가 아닌 값도 허용한다. 0일은 마감 당일 하루의 준비 일정이다. 현재 프론트의 leadTimeWeeks(1~26주)와는 아직 호환되지 않는다. 폼·타입·어댑터를 일 단위로 전환하고 0~182일 검증을 적용해야 한다. 이번 PR은 프론트 코드 변경을 포함하지 않는다.
 
 title_template은 제거한다. `[작성 요망]` 등 문구는 표시 계층이 source와 구조화된 필드로 조합한다. KAN-48의 템플릿 설정 요구도 구현 전에 이 변경안에 맞춰 정리가 필요하다. title에는 제출 단계를 반복해 넣지 않는다.
 
@@ -321,7 +321,7 @@ title_template은 제거한다. `[작성 요망]` 등 문구는 표시 계층이
 
 - [x] 종일 일정 DB/API/조회 양 끝 포함 및 서울 기준 반영
 - [x] 카테고리·출처 값 및 서버 detail 조합 규칙 반영
-- [ ] 프론트 leadTimeWeeks → leadTimeDays 전환 및 입력 범위 재확인
+- [ ] 프론트 leadTimeWeeks → leadTimeDays 전환 및 확정 범위 0~182일 적용
 - [ ] 과제 한 행에 제출 단계·마감 하나인 모델
 - [x] 원천 생성 일정 직접 수정 금지 반영
 - [ ] 원천 삭제/재등장 정책 확정
@@ -353,3 +353,7 @@ KAN-27의 완료 조건은 문서 공유와 팀 리뷰 후 확정이다. 현재�
 7. category.color 제거, 색상은 프론트 디자인 토큰이 관리.
 
 자동 생성 일정 직접 수정 금지와 카드 표시 형식도 반영했다. 과제 다중 마감, 익명 참석자, 구글 원본 식별 방식은 여전히 팀 결정이 필요하다.
+
+## 11. API PR #6 잔여 계약 확정
+
+2026-09-08: 제출 단계는 NULL 허용(없으면 과제명만 표시), leadTimeDays는 0~182일 정수·기본 21로 확정했다. 동명이인은 KAN-41의 ID 선택 방식에서 해결하며 현재 자유 입력의 이름 중복 제거는 임시 유지한다. Vite 개발 프록시는 프론트가 후속 적용하며 적용 확인 전 백엔드 CORS를 제거하지 않는다. KAN-28의 V1.1.0.002__project_api_contract.sql이 DB 변경을 반영한다.

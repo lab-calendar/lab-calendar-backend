@@ -22,7 +22,7 @@ public class ResearchProject {
     @Column(name = "name", nullable = false, length = 200)
     private String name;
 
-    @Column(name = "submission_type", nullable = false, length = 100)
+    @Column(name = "submission_type", length = 100)
     private String submissionType;
 
     @Column(name = "end_date", nullable = false)
