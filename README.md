@@ -5,6 +5,7 @@ Backend API server for Lab Calendar
 ## Design documents
 
 - [ERD 및 DB 스키마 설계 (KAN-27, 팀 리뷰용 초안)](docs/database-design.md)
+- [DB 마이그레이션 운영 및 검증 (KAN-28)](docs/database-migrations.md)
 
 ## Tech Stack
 
