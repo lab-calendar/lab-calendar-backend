@@ -8,3 +8,7 @@ spring:
 logging:
   level:
     org.hibernate.SQL: warn
+
+lab-calendar:
+  auth:
+    cookie-secure: true

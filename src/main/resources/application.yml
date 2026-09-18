@@ -25,3 +25,13 @@ server:
 logging:
   level:
     org.hibernate.SQL: debug
+
+# 공용 비밀번호 인증 (KAN-34). 값은 환경에서 주입하며 저장소에 두지 않는다.
+lab-calendar:
+  auth:
+    editor-password-hash: ${AUTH_EDITOR_PASSWORD_HASH:}
+    viewer-password-hash: ${AUTH_VIEWER_PASSWORD_HASH:}
+    token-secret: ${AUTH_TOKEN_SECRET:}
+    token-ttl: PT12H
+    # 로컬은 평문 HTTP 라 Secure 쿠키가 전달되지 않는다. 운영 프로파일에서 켠다.
+    cookie-secure: false
