@@ -48,4 +48,16 @@ public class EventParticipant {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now(java.time.Clock.systemUTC());
     }
+
+    /**
+     * An attendee entered as free text. No member link yet — names alone cannot tell two people
+     * with the same name apart, so that waits for the member picker (KAN-41).
+     */
+    public static EventParticipant unlinked(Long eventId, String displayName, int position) {
+        EventParticipant participant = new EventParticipant();
+        participant.eventId = eventId;
+        participant.displayName = displayName;
+        participant.position = position;
+        return participant;
+    }
 }

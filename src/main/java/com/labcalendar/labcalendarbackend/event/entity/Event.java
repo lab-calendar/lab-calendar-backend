@@ -1,5 +1,6 @@
 package com.labcalendar.labcalendarbackend.event.entity;
 
+import com.labcalendar.labcalendarbackend.event.EventSource;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -74,5 +75,38 @@ public class Event {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now(java.time.Clock.systemUTC());
+    }
+
+    /**
+     * Creates a manual event. Generated events are written by the lead-time batch (KAN-49) and the
+     * Google sync (KAN-58), which own their source rows and set the matching foreign key.
+     */
+    public static Event manual(Long categoryId, String title, String detail, String memo,
+            LocalDate startDate, LocalDate endDate) {
+        Event event = new Event();
+        event.categoryId = categoryId;
+        event.title = title;
+        event.manualDetail = detail;
+        event.memo = memo;
+        event.startDate = startDate;
+        event.endDate = endDate;
+        event.allDay = true;
+        event.source = EventSource.MANUAL.name();
+        return event;
+    }
+
+    /** Applies an edit. Reachable only for manual events — the service rejects the rest. */
+    public void applyManualEdit(Long categoryId, String title, String detail, String memo,
+            LocalDate startDate, LocalDate endDate) {
+        this.categoryId = categoryId;
+        this.title = title;
+        this.manualDetail = detail;
+        this.memo = memo;
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
+    public EventSource source() {
+        return EventSource.of(source);
     }
 }
