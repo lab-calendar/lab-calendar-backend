@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import com.labcalendar.labcalendarbackend.config.TimeConfig;
@@ -30,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProjectApiTests {
 
     @Autowired MockMvc mvc;
+    @Autowired JdbcTemplate jdbc;
 
     private static LocalDate today() {
         return LocalDate.now(TimeConfig.SERVICE_ZONE);
@@ -189,6 +191,16 @@ class ProjectApiTests {
                         .value(deadline.minusDays(10).toString()));
     }
 
+    @Test
+    void refusesToDeleteAProjectThatAlreadyHasAGeneratedSchedule() throws Exception {
+        String id = create(body("배치가 만든 일정 있음", today().plusDays(10), 21));
+        insertGeneratedEventFor(Long.valueOf(id));
+
+        mvc.perform(delete("/api/projects/" + id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
+    }
+
     private String create(String body) throws Exception {
         String response = mvc.perform(post("/api/projects").contentType("application/json").content(body))
                 .andExpect(status().isCreated())
@@ -205,5 +217,17 @@ class ProjectApiTests {
                         {"name":"%s","endDate":"%s","leadTimeDays":21,"active":false}
                         """.formatted(name, endDate)))
                 .andExpect(status().isOk());
+    }
+
+    /** Written straight to the tables: the batch that creates these is KAN-49. */
+    private void insertGeneratedEventFor(Long projectId) {
+        Long categoryId = jdbc.queryForObject(
+                "SELECT id FROM category WHERE code = 'project'", Long.class);
+        jdbc.update("""
+                INSERT INTO event (category_id, research_project_id, title, start_date, end_date,
+                        all_day, source, created_at, updated_at)
+                VALUES (?, ?, '준비 기간', '2026-09-05', '2026-09-26', TRUE, 'AUTO_GENERATED',
+                        '2026-09-01 00:00:00', '2026-09-01 00:00:00')
+                """, categoryId, projectId);
     }
 }

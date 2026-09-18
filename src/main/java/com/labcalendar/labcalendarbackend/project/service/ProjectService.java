@@ -3,7 +3,6 @@ package com.labcalendar.labcalendarbackend.project.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,18 +71,19 @@ public class ProjectService {
      *
      * <p>Its generated schedule holds a RESTRICT foreign key, so a project that already has one
      * cannot simply disappear. Clearing that row belongs with the batch that creates it (KAN-49);
-     * until then no project has one. The constraint is surfaced as a conflict rather than a
-     * server error so the failure is at least legible if the order ever gets reversed.
+     * until then no project has one.
+     *
+     * <p>The reference is counted first. Letting the foreign key raise instead would be too late —
+     * the failed flush marks the transaction rollback-only, so the commit that follows throws and
+     * the caller would get a server error rather than this conflict.
      */
     @Transactional
     public void delete(Long id) {
         ResearchProject project = find(id);
-        try {
-            projects.delete(project);
-            projects.flush();
-        } catch (DataIntegrityViolationException blocked) {
+        if (projects.countGeneratedEvents(project.getId()) > 0) {
             throw new BusinessException(ErrorCode.CONFLICT);
         }
+        projects.delete(project);
     }
 
     private ResearchProject find(Long id) {
