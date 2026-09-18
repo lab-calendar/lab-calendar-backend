@@ -29,7 +29,9 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest
+// Scoped to the fixtures under test: a bare @WebMvcTest pulls in every application controller,
+// so each new feature controller would break this slice on its missing service beans.
+@WebMvcTest(controllers = {ApiContractTests.FixtureController.class, HealthController.class, ApiErrorController.class})
 @Import({ApiContractTests.FixtureController.class, GlobalExceptionHandler.class, ApiErrorController.class, HealthController.class})
 class ApiContractTests {
     @Autowired MockMvc mvc;

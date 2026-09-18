@@ -5,9 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.labcalendar.labcalendarbackend.event.repository.EventParticipantRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -29,6 +31,7 @@ class EventApiTests {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired EventParticipantRepository participants;
 
     private static final String LAB_MEETING = """
             {"title":"정기 주간 랩미팅","detail":"홍길동","startDate":"2026-09-10",
@@ -96,7 +99,9 @@ class EventApiTests {
 
         mvc.perform(delete("/api/events/" + id)).andExpect(status().isNoContent());
         mvc.perform(get("/api/events/" + id)).andExpect(status().isNotFound());
-        assertParticipantCount(id, 0);
+        // Queried through JPA so the pending deletes are flushed first; a raw JDBC count would
+        // run on the same transaction but miss what the persistence context has not written yet.
+        assertThat(participants.findByEventIdOrderByPositionAsc(Long.valueOf(id))).isEmpty();
     }
 
     @Test
@@ -201,10 +206,4 @@ class EventApiTests {
                 "SELECT id FROM event WHERE research_project_id = ?", Long.class, projectId));
     }
 
-    private void assertParticipantCount(String eventId, long expected) {
-        Long count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM event_participant WHERE event_id = ?", Long.class,
-                Long.valueOf(eventId));
-        org.assertj.core.api.Assertions.assertThat(count).isEqualTo(expected);
-    }
 }
