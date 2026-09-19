@@ -23,6 +23,7 @@ server:
   port: 8080
 
 springdoc:
+  override-with-generic-response: false
   api-docs:
     enabled: true
   swagger-ui:
@@ -33,3 +34,4 @@ springdoc:
 logging:
   level:
     org.hibernate.SQL: debug
+
