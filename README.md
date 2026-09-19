@@ -4,6 +4,8 @@ Backend API server for Lab Calendar
 
 ## Design documents
 
+- [Swagger API 문서 기본 설정 (KAN-30)](docs/openapi.md)
+
 - [ERD 및 DB 스키마 설계 (KAN-27, 팀 리뷰용 초안)](docs/database-design.md)
 - [DB 마이그레이션 운영 및 검증 (KAN-28)](docs/database-migrations.md)
 - [API 구현 및 공통 응답 규칙 (KAN-29)](docs/api-conventions.md)
