@@ -17,19 +17,30 @@ public interface EventRepository extends JpaRepository<Event, Long> {
      * one belongs on this month's calendar. Both ends are inclusive, matching how the dates are
      * stored and what the API promises — nothing here adds or subtracts a day.
      *
-     * <p>The predicate is served by {@code ix_event_dates (start_date, end_date)}.
+     * <p>A generated schedule whose project has been switched off is left out. Hiding a project is
+     * how the lab takes its preparation period off the calendar without deleting the project
+     * (docs/api-contract.md §7.3), so the filter belongs in the query: waiting for the batch to
+     * clear those rows would leave them showing until it next runs.
+     *
+     * <p>The date predicate is served by {@code ix_event_dates (start_date, end_date)}.
      */
     @Query("""
             SELECT e FROM Event e
             WHERE e.startDate <= :to AND e.endDate >= :from
+              AND (e.researchProjectId IS NULL
+                   OR EXISTS (SELECT 1 FROM ResearchProject p
+                              WHERE p.id = e.researchProjectId AND p.active = TRUE))
             ORDER BY e.startDate ASC, e.id ASC
             """)
     List<Event> findOverlapping(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    /** Same range rule, narrowed to categories. Served by {@code ix_event_category_dates}. */
+    /** Same range and visibility rules, narrowed to categories. Served by {@code ix_event_category_dates}. */
     @Query("""
             SELECT e FROM Event e
             WHERE e.startDate <= :to AND e.endDate >= :from AND e.categoryId IN :categoryIds
+              AND (e.researchProjectId IS NULL
+                   OR EXISTS (SELECT 1 FROM ResearchProject p
+                              WHERE p.id = e.researchProjectId AND p.active = TRUE))
             ORDER BY e.startDate ASC, e.id ASC
             """)
     List<Event> findOverlappingInCategories(@Param("from") LocalDate from, @Param("to") LocalDate to,

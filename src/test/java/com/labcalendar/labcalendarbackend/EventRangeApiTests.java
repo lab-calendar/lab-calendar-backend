@@ -141,6 +141,70 @@ class EventRangeApiTests {
                 .andExpect(jsonPath("$.data[0].participants", contains("홍길동", "김철수")));
     }
 
+    @Test
+    void keepsGeneratedEventsWhileTheirProjectIsActive() throws Exception {
+        insertProjectEvent("살아있는 과제", true, "2026-09-05", "2026-09-26");
+
+        mvc.perform(get("/api/events" + SEPTEMBER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.title == '살아있는 과제')]").isNotEmpty());
+    }
+
+    @Test
+    void dropsGeneratedEventsOnceTheirProjectIsHidden() throws Exception {
+        insertProjectEvent("숨긴 과제", false, "2026-09-05", "2026-09-26");
+
+        // 과제를 비활성으로 두는 것이 준비 기간을 달력에서 내리는 방법이다 (계약 §7.3).
+        mvc.perform(get("/api/events" + SEPTEMBER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.title == '숨긴 과제')]").isEmpty());
+    }
+
+    @Test
+    void theSameRuleAppliesWhenFilteringByCategory() throws Exception {
+        insertProjectEvent("살아있는 과제", true, "2026-09-05", "2026-09-26");
+        insertProjectEvent("숨긴 과제", false, "2026-09-06", "2026-09-27");
+
+        mvc.perform(get("/api/events" + SEPTEMBER + "&categories=project"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.title == '살아있는 과제')]").isNotEmpty())
+                .andExpect(jsonPath("$.data[?(@.title == '숨긴 과제')]").isEmpty());
+    }
+
+    @Test
+    void hidingAProjectDoesNotTouchManualEvents() throws Exception {
+        insertProjectEvent("숨긴 과제", false, "2026-09-05", "2026-09-26");
+
+        // 수동 일정은 과제와 무관하므로 그대로 남아야 한다.
+        mvc.perform(get("/api/events" + SEPTEMBER))
+                .andExpect(jsonPath("$.data", hasSize(4)))
+                .andExpect(jsonPath("$.data[?(@.title == '9월 한가운데')]").isNotEmpty());
+    }
+
+    /**
+     * A project with the schedule the batch would generate for it (KAN-49).
+     *
+     * <p>Written straight to the tables because nothing creates these through the app yet.
+     */
+    private void insertProjectEvent(String name, boolean active, String startDate, String endDate) {
+        jdbc.update("""
+                INSERT INTO research_project (name, submission_type, end_date, lead_time_days,
+                        active, created_at, updated_at)
+                VALUES (?, '연차보고서', ?, 21, ?, '2026-09-01 00:00:00', '2026-09-01 00:00:00')
+                """, name, endDate, active);
+        Long projectId = jdbc.queryForObject(
+                "SELECT id FROM research_project WHERE name = ?", Long.class, name);
+        Long categoryId = jdbc.queryForObject(
+                "SELECT id FROM category WHERE code = 'project'", Long.class);
+
+        jdbc.update("""
+                INSERT INTO event (category_id, research_project_id, title, start_date, end_date,
+                        all_day, source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, TRUE, 'AUTO_GENERATED', '2026-09-01 00:00:00',
+                        '2026-09-01 00:00:00')
+                """, categoryId, projectId, name, startDate, endDate);
+    }
+
     private void insert(String title, String categoryKey, String startDate, String endDate) {
         Long categoryId = jdbc.queryForObject(
                 "SELECT id FROM category WHERE code = ?", Long.class, categoryKey);
