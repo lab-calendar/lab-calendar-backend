@@ -9,6 +9,12 @@ logging:
   level:
     org.hibernate.SQL: warn
 
+# 운영에서는 UI와 원본 OpenAPI 문서를 모두 비활성화합니다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 lab-calendar:
   auth:
     cookie-secure: true
