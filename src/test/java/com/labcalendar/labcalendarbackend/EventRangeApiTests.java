@@ -137,8 +137,11 @@ class EventRangeApiTests {
         insertParticipant(eventId, "홍길동", 0);
         insertParticipant(eventId, "김철수", 1);
 
+        // 9/10 에는 '8월부터 10월까지 통째로' 도 걸리고, 시작일 순이라 그쪽이 앞에 온다.
         mvc.perform(get("/api/events?from=2026-09-10&to=2026-09-10"))
-                .andExpect(jsonPath("$.data[0].participants", contains("홍길동", "김철수")));
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[1].title").value("9월 한가운데"))
+                .andExpect(jsonPath("$.data[1].participants", contains("홍길동", "김철수")));
     }
 
     @Test
