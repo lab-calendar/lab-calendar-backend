@@ -7,6 +7,10 @@ services:
       DB_URL: ${DB_URL}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+      # 공용 비밀번호 인증 (KAN-34). 셋 중 하나라도 비면 앱이 기동을 거부한다.
+      AUTH_EDITOR_PASSWORD_HASH: ${AUTH_EDITOR_PASSWORD_HASH}
+      AUTH_VIEWER_PASSWORD_HASH: ${AUTH_VIEWER_PASSWORD_HASH}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET}
     expose:
       - "8080"
     networks:
