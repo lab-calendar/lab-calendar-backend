@@ -25,10 +25,13 @@ public class ProjectService {
             Sort.Order.desc("active"), Sort.Order.asc("endDate"), Sort.Order.asc("id"));
 
     private final ResearchProjectRepository projects;
+    private final PreparationScheduleService schedules;
     private final Clock clock;
 
-    public ProjectService(ResearchProjectRepository projects, Clock clock) {
+    public ProjectService(ResearchProjectRepository projects,
+            PreparationScheduleService schedules, Clock clock) {
         this.projects = projects;
+        this.schedules = schedules;
         this.clock = clock;
     }
 
@@ -51,6 +54,8 @@ public class ProjectService {
                 request.endDate(),
                 request.leadTimeDays(),
                 request.active()));
+        // 등록만으로 캘린더에 준비 기간 바가 나타나야 한다 (기획서 3.1)
+        schedules.sync(project);
         return toResponse(project, LocalDate.now(clock));
     }
 
@@ -63,26 +68,26 @@ public class ProjectService {
                 request.endDate(),
                 request.leadTimeDays(),
                 request.active());
+        // 마감일이나 리드타임이 바뀌면 준비 기간도 함께 옮겨간다
+        schedules.sync(project);
         return toResponse(project, LocalDate.now(clock));
     }
 
     /**
-     * Deletes a project.
+     * Deletes a project, and the preparation schedule it owns with it.
      *
-     * <p>Its generated schedule holds a RESTRICT foreign key, so a project that already has one
-     * cannot simply disappear. Clearing that row belongs with the batch that creates it (KAN-49);
-     * until then no project has one.
+     * <p>That schedule holds a RESTRICT foreign key onto the project. Since KAN-49 every project
+     * has one, so clearing it is not a special case any more — it is simply part of deleting a
+     * project, and skipping it would make every deletion fail.
      *
-     * <p>The reference is counted first. Letting the foreign key raise instead would be too late —
-     * the failed flush marks the transaction rollback-only, so the commit that follows throws and
-     * the caller would get a server error rather than this conflict.
+     * <p>It is the only thing that can reference a project ({@code uq_event_project} allows one
+     * generated event per project and nothing else points here), so once it is gone the row is
+     * free. There is no conflict left to report.
      */
     @Transactional
     public void delete(Long id) {
         ResearchProject project = find(id);
-        if (projects.countGeneratedEvents(project.getId()) > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT);
-        }
+        schedules.removeFor(project.getId());
         projects.delete(project);
     }
 

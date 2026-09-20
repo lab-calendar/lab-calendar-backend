@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import com.labcalendar.labcalendarbackend.config.TimeConfig;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -192,13 +193,15 @@ class ProjectApiTests {
     }
 
     @Test
-    void refusesToDeleteAProjectThatAlreadyHasAGeneratedSchedule() throws Exception {
+    void deletingAProjectTakesItsGeneratedScheduleWithIt() throws Exception {
         String id = create(body("배치가 만든 일정 있음", today().plusDays(10), 21));
-        insertGeneratedEventFor(Long.valueOf(id));
 
-        mvc.perform(delete("/api/projects/" + id))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CONFLICT"));
+        // KAN-49 전에는 생성 일정이 있으면 409 였다. 이제는 모든 과제가 하나씩 가지므로,
+        // 삭제가 그것까지 치우고 나가야 한다 — 안 그러면 삭제가 항상 실패한다.
+        mvc.perform(delete("/api/projects/" + id)).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM event WHERE research_project_id IS NOT NULL", Integer.class))
+                .isZero();
     }
 
     private String create(String body) throws Exception {
@@ -219,15 +222,4 @@ class ProjectApiTests {
                 .andExpect(status().isOk());
     }
 
-    /** Written straight to the tables: the batch that creates these is KAN-49. */
-    private void insertGeneratedEventFor(Long projectId) {
-        Long categoryId = jdbc.queryForObject(
-                "SELECT id FROM category WHERE code = 'project'", Long.class);
-        jdbc.update("""
-                INSERT INTO event (category_id, research_project_id, title, start_date, end_date,
-                        all_day, source, created_at, updated_at)
-                VALUES (?, ?, '준비 기간', '2026-09-05', '2026-09-26', TRUE, 'AUTO_GENERATED',
-                        '2026-09-01 00:00:00', '2026-09-01 00:00:00')
-                """, categoryId, projectId);
-    }
 }

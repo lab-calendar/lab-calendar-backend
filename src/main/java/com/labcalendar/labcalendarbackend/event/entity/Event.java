@@ -95,6 +95,37 @@ public class Event {
         return event;
     }
 
+    /**
+     * Creates the preparation schedule a project implies (KAN-49).
+     *
+     * <p>The project id is what makes this row unique: {@code uq_event_project} allows one per
+     * project, so a repeated batch run cannot double it up.
+     */
+    public static Event generated(Long categoryId, Long researchProjectId, String title,
+            LocalDate startDate, LocalDate endDate) {
+        Event event = new Event();
+        event.categoryId = categoryId;
+        event.researchProjectId = researchProjectId;
+        event.title = title;
+        event.startDate = startDate;
+        event.endDate = endDate;
+        event.allDay = true;
+        event.source = EventSource.AUTO_GENERATED.name();
+        return event;
+    }
+
+    /**
+     * Moves a generated schedule onto new dates.
+     *
+     * <p>Only the period and the stored title change. The category and the project it belongs to
+     * are what identify the row, and a generated event carries no memo or participants.
+     */
+    public void applyGeneratedPeriod(String title, LocalDate startDate, LocalDate endDate) {
+        this.title = title;
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
     /** Applies an edit. Reachable only for manual events — the service rejects the rest. */
     public void applyManualEdit(Long categoryId, String title, String detail, String memo,
             LocalDate startDate, LocalDate endDate) {
