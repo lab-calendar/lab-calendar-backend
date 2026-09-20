@@ -23,6 +23,11 @@ public interface EventRepository extends JpaRepository<Event, Long> {
      * (docs/api-contract.md §7.3), so the filter belongs in the query: waiting for the batch to
      * clear those rows would leave them showing until it next runs.
      *
+     * <p>{@code includeCardData} is false for viewers. Withholding spending is the whole point of
+     * that tier (KAN-35), so it is excluded here rather than after loading — what is never read
+     * cannot be leaked by a later change. Both the category and the card link are checked: a
+     * manually filed card entry has no link, and a synced one could in principle be recategorised.
+     *
      * <p>The date predicate is served by {@code ix_event_dates (start_date, end_date)}.
      */
     @Query("""
@@ -31,9 +36,14 @@ public interface EventRepository extends JpaRepository<Event, Long> {
               AND (e.researchProjectId IS NULL
                    OR EXISTS (SELECT 1 FROM ResearchProject p
                               WHERE p.id = e.researchProjectId AND p.active = TRUE))
+              AND (:includeCardData = TRUE
+                   OR (e.cardExpenseId IS NULL
+                       AND NOT EXISTS (SELECT 1 FROM Category c
+                                       WHERE c.id = e.categoryId AND c.code = 'card')))
             ORDER BY e.startDate ASC, e.id ASC
             """)
-    List<Event> findOverlapping(@Param("from") LocalDate from, @Param("to") LocalDate to);
+    List<Event> findOverlapping(@Param("from") LocalDate from, @Param("to") LocalDate to,
+            @Param("includeCardData") boolean includeCardData);
 
     /** Same range and visibility rules, narrowed to categories. Served by {@code ix_event_category_dates}. */
     @Query("""
@@ -42,15 +52,23 @@ public interface EventRepository extends JpaRepository<Event, Long> {
               AND (e.researchProjectId IS NULL
                    OR EXISTS (SELECT 1 FROM ResearchProject p
                               WHERE p.id = e.researchProjectId AND p.active = TRUE))
+              AND (:includeCardData = TRUE
+                   OR (e.cardExpenseId IS NULL
+                       AND NOT EXISTS (SELECT 1 FROM Category c
+                                       WHERE c.id = e.categoryId AND c.code = 'card')))
             ORDER BY e.startDate ASC, e.id ASC
             """)
     List<Event> findOverlappingInCategories(@Param("from") LocalDate from, @Param("to") LocalDate to,
-            @Param("categoryIds") Collection<Long> categoryIds);
+            @Param("categoryIds") Collection<Long> categoryIds,
+            @Param("includeCardData") boolean includeCardData);
 
     /**
      * The generated schedule belonging to a project, if the batch has written one (KAN-49).
      *
      * <p>At most one can exist: {@code uq_event_project} is a unique constraint on the column.
+     *
+     * <p>No tier filter here. This is the batch reconciling its own rows, not a calendar read —
+     * a preparation schedule is never card data, and the batch is not acting for a viewer.
      */
     Optional<Event> findByResearchProjectId(Long researchProjectId);
 

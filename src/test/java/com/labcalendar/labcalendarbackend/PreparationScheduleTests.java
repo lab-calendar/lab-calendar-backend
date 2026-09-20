@@ -9,8 +9,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 import com.labcalendar.labcalendarbackend.config.TimeConfig;
+import com.labcalendar.labcalendarbackend.support.EditorSession;
 import com.labcalendar.labcalendarbackend.project.service.PreparationScheduleService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(EditorSession.class)
 @Transactional
 class PreparationScheduleTests {
 
