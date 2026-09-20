@@ -8,12 +8,14 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,8 +24,11 @@ import com.labcalendar.labcalendarbackend.common.api.ApiResponse;
 import com.labcalendar.labcalendarbackend.common.exception.BusinessException;
 import com.labcalendar.labcalendarbackend.common.exception.ErrorCode;
 import com.labcalendar.labcalendarbackend.common.exception.GlobalExceptionHandler;
+import com.labcalendar.labcalendarbackend.auth.web.AuthInterceptor;
 import com.labcalendar.labcalendarbackend.health.HealthController;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -34,6 +39,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = {ApiContractTests.FixtureController.class, HealthController.class, ApiErrorController.class})
 @Import({ApiContractTests.FixtureController.class, GlobalExceptionHandler.class, ApiErrorController.class, HealthController.class})
 class ApiContractTests {
+    /*
+     * WebConfig 가 인터셉터를 등록하므로 이 슬라이스도 그 빈을 요구한다. 이 테스트는
+     * 오류 응답 계약을 보는 것이고 인증은 AuthorizationApiTests 가 따로 검증하므로,
+     * 여기서는 통과시키는 인터셉터를 끼운다.
+     */
+    @MockitoBean AuthInterceptor authInterceptor;
+
+    @BeforeEach
+    void letEveryRequestThrough() throws Exception {
+        given(authInterceptor.preHandle(any(), any(), any())).willReturn(true);
+    }
+
     @Autowired MockMvc mvc;
 
     @Test void successObjectAndListAreWrappedOnce() throws Exception {

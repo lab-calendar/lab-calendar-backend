@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.labcalendar.labcalendarbackend.category.entity.Category;
 import com.labcalendar.labcalendarbackend.category.repository.CategoryRepository;
+import com.labcalendar.labcalendarbackend.auth.CurrentSession;
 import com.labcalendar.labcalendarbackend.common.exception.BusinessException;
 import com.labcalendar.labcalendarbackend.common.exception.ErrorCode;
 import com.labcalendar.labcalendarbackend.event.dto.EventRequest;
@@ -32,22 +33,28 @@ import com.labcalendar.labcalendarbackend.project.repository.ResearchProjectRepo
 @Service
 public class EventService {
 
+    /** 카드 카테고리 코드. EventRepository 의 JPQL 에도 같은 리터럴이 들어 있다. */
+    private static final String CARD_CATEGORY_CODE = "card";
+
     private final EventRepository events;
     private final EventParticipantRepository participants;
     private final CategoryRepository categories;
     private final MemberRepository members;
     private final ResearchProjectRepository projects;
     private final CardExpenseRepository cardExpenses;
+    private final CurrentSession session;
 
     public EventService(EventRepository events, EventParticipantRepository participants,
             CategoryRepository categories, MemberRepository members,
-            ResearchProjectRepository projects, CardExpenseRepository cardExpenses) {
+            ResearchProjectRepository projects, CardExpenseRepository cardExpenses,
+            CurrentSession session) {
         this.events = events;
         this.participants = participants;
         this.categories = categories;
         this.members = members;
         this.projects = projects;
         this.cardExpenses = cardExpenses;
+        this.session = session;
     }
 
     /**
@@ -62,19 +69,41 @@ public class EventService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
         if (categoryKeys == null) {
-            return assemble(events.findOverlapping(from, to));
+            return assemble(events.findOverlapping(from, to, session.seesCardData()));
         }
 
         Set<Long> categoryIds = resolveCategoryIds(categoryKeys);
         if (categoryIds.isEmpty()) {
             return List.of();
         }
-        return assemble(events.findOverlappingInCategories(from, to, categoryIds));
+        return assemble(
+                events.findOverlappingInCategories(from, to, categoryIds, session.seesCardData()));
     }
 
     @Transactional(readOnly = true)
     public EventResponse get(Long id) {
-        return single(findEvent(id));
+        Event event = findEvent(id);
+        requireVisible(event);
+        return single(event);
+    }
+
+    /**
+     * Keeps a viewer from reading a card entry by its id after it was filtered out of the list.
+     *
+     * <p>Answered as not found rather than forbidden. A 403 would confirm that a spend exists on
+     * that id, and not saying so is the point of the tier.
+     */
+    private void requireVisible(Event event) {
+        if (session.seesCardData()) {
+            return;
+        }
+        boolean cardData = event.getCardExpenseId() != null
+                || categories.findById(event.getCategoryId())
+                        .map(category -> CARD_CATEGORY_CODE.equals(category.getCode()))
+                        .orElse(false);
+        if (cardData) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
     }
 
     @Transactional
