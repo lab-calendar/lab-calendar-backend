@@ -10,6 +10,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -146,6 +147,80 @@ class AuthApiTests {
         mvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(COOKIE, 0));
+    }
+
+    @Test
+    void rewritingForwardedForDoesNotResetTheFailureCount() throws Exception {
+        // nginx 는 X-Forwarded-For 에 덧붙이기만 하므로 앞부분은 호출자가 마음대로 정한다.
+        // 그 값으로 집계하면 매 요청 다른 키가 되어 제한이 무력해진다.
+        String caller = "203.0.113.9";
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mvc.perform(post("/api/auth/login").contentType("application/json")
+                            .header("X-Real-IP", caller)
+                            .header("X-Forwarded-For", "10.9.9." + attempt + ", " + caller)
+                            .content(loginBody("wrong-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .header("X-Real-IP", caller)
+                        .header("X-Forwarded-For", "10.9.9.99, " + caller)
+                        .content(loginBody("wrong-again")))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void aBlockedCallerCannotGetInWithTheRightPasswordEither() throws Exception {
+        String caller = "203.0.113.10";
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mvc.perform(post("/api/auth/login").contentType("application/json")
+                            .header("X-Real-IP", caller).content(loginBody("wrong-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .header("X-Real-IP", caller).content(loginBody(EDITOR_PASSWORD)))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void anotherCallerIsUnaffectedByAnAddressBeingBlocked() throws Exception {
+        String blocked = "203.0.113.11";
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mvc.perform(post("/api/auth/login").contentType("application/json")
+                            .header("X-Real-IP", blocked).content(loginBody("wrong-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .header("X-Real-IP", "203.0.113.12").content(loginBody(EDITOR_PASSWORD)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void theHeaderIsIgnoredWhenTheRequestDidNotComeThroughTheProxy() throws Exception {
+        // 프록시를 건너뛰고 직접 들어온 요청은 스스로 붙인 헤더를 신뢰받지 못한다.
+        String publicPeer = "198.51.100.7";
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mvc.perform(post("/api/auth/login").contentType("application/json")
+                            .with(fromAddress(publicPeer))
+                            .header("X-Real-IP", "10.0.0." + attempt)
+                            .content(loginBody("wrong-" + attempt)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .with(fromAddress(publicPeer))
+                        .header("X-Real-IP", "10.0.0.99")
+                        .content(loginBody("wrong-again")))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    private static RequestPostProcessor fromAddress(String address) {
+        return request -> {
+            request.setRemoteAddr(address);
+            return request;
+        };
     }
 
     private Cookie signIn(String password) throws Exception {

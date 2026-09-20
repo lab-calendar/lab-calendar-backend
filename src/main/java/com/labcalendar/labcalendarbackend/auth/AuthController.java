@@ -32,7 +32,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<SessionResponse>> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        AuthService.Session session = service.login(request.password(), clientOf(httpRequest));
+        AuthService.Session session =
+                service.login(request.password(), ClientAddress.of(httpRequest));
         ResponseCookie cookie = AuthCookie.issue(
                 session.token().value(), session.token().ttl(), properties.isCookieSecure());
 
@@ -62,21 +63,6 @@ public class AuthController {
         return ApiResponse.of(service.resolve(token)
                 .map(SessionResponse::of)
                 .orElseGet(SessionResponse::anonymous));
-    }
-
-    /**
-     * Who to count login failures against.
-     *
-     * <p>nginx sits in front and passes the caller along in X-Forwarded-For; without it every
-     * request would look like it came from the proxy and one person failing would lock out the lab.
-     */
-    private static String clientOf(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded == null || forwarded.isBlank()) {
-            return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
-        }
-        int firstHop = forwarded.indexOf(',');
-        return (firstHop < 0 ? forwarded : forwarded.substring(0, firstHop)).trim();
     }
 
 }
