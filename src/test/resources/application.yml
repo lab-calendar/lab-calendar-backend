@@ -17,3 +17,12 @@ spring:
 
 springdoc:
   override-with-generic-response: false
+# 컨텍스트가 뜨려면 인증 설정이 있어야 한다 (AuthProperties 가 빈 값이면 기동을 막는다).
+# 여기 값은 형식만 갖춘 자리표시자이고 실제 BCrypt 해시가 아니다 — 로그인을 검증하는
+# 테스트는 @DynamicPropertySource 로 진짜 해시를 만들어 덮어쓴다.
+lab-calendar:
+  auth:
+    editor-password-hash: "not-a-real-hash-editor"
+    viewer-password-hash: "not-a-real-hash-viewer"
+    token-secret: "test-only-secret-that-is-long-enough-32"
+    cookie-secure: false

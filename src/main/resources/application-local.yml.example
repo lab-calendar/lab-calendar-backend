@@ -5,4 +5,18 @@ spring:
     url: jdbc:mysql://localhost:3306/lab_calendar?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
     username: root
     password: changeme
-    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# 공용 비밀번호 인증 (KAN-34).
+#
+# 편집용·조회용 비밀번호를 각각 정하고 BCrypt 해시로 바꿔 넣으세요.
+# 평문 비밀번호는 어디에도 적지 않습니다.
+#
+#   htpasswd -bnBC 10 "" 원하는비밀번호 | tr -d ':\n'
+#
+# 두 해시가 같으면 앱이 기동하지 않습니다 (조회 등급이 편집 권한을 갖는 사고 방지).
+# token-secret 은 32자 이상이며, 바꾸면 발급된 세션이 모두 만료됩니다.
+lab-calendar:
+  auth:
+    editor-password-hash: ""
+    viewer-password-hash: ""
+    token-secret: ""

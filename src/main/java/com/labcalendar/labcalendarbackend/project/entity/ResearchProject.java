@@ -51,4 +51,21 @@ public class ResearchProject {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now(java.time.Clock.systemUTC());
     }
+
+    /** Registers a project. The lead-time batch (KAN-49) derives its schedule from these values. */
+    public static ResearchProject register(String name, String submissionType, LocalDate endDate,
+            int leadTimeDays, boolean active) {
+        ResearchProject project = new ResearchProject();
+        project.apply(name, submissionType, endDate, leadTimeDays, active);
+        return project;
+    }
+
+    public void apply(String name, String submissionType, LocalDate endDate, int leadTimeDays,
+            boolean active) {
+        this.name = name;
+        this.submissionType = submissionType;
+        this.endDate = endDate;
+        this.leadTimeDays = leadTimeDays;
+        this.active = active;
+    }
 }

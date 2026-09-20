@@ -42,4 +42,16 @@ public class Member {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now(java.time.Clock.systemUTC());
     }
+
+    /** Adds someone to the roster. Names are not unique — see MemberRequest. */
+    public static Member register(String name, boolean active) {
+        Member member = new Member();
+        member.apply(name, active);
+        return member;
+    }
+
+    public void apply(String name, boolean active) {
+        this.name = name;
+        this.active = active;
+    }
 }
