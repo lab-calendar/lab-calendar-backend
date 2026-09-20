@@ -3,6 +3,7 @@ package com.labcalendar.labcalendarbackend.event.repository;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -60,4 +61,17 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     List<Event> findOverlappingInCategories(@Param("from") LocalDate from, @Param("to") LocalDate to,
             @Param("categoryIds") Collection<Long> categoryIds,
             @Param("includeCardData") boolean includeCardData);
+
+    /**
+     * The generated schedule belonging to a project, if the batch has written one (KAN-49).
+     *
+     * <p>At most one can exist: {@code uq_event_project} is a unique constraint on the column.
+     *
+     * <p>No tier filter here. This is the batch reconciling its own rows, not a calendar read —
+     * a preparation schedule is never card data, and the batch is not acting for a viewer.
+     */
+    Optional<Event> findByResearchProjectId(Long researchProjectId);
+
+    /** Every generated schedule there is, so the batch can reconcile them in one pass. */
+    List<Event> findByResearchProjectIdIsNotNull();
 }
