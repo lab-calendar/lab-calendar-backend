@@ -40,3 +40,7 @@ out/
 src/main/resources/application-local.yml
 deploy/.env
 
+
+# 카드 내역 원본(참석자 이름 포함)이 실수로 올라가지 않게 한다. 테스트는 코드에서 워크북을 만든다.
+*.xlsx
+*.xls
