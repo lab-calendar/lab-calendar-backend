@@ -149,6 +149,22 @@ class PreparationScheduleTests {
     }
 
     @Test
+    void lengtheningTheLeadTimeExpandsThePeriod() throws Exception {
+        LocalDate deadline = today().plusDays(30);
+        String id = create(body("BRL 과제", deadline, 7, true));
+
+        mvc.perform(put("/api/projects/" + id).contentType("application/json")
+                .content(body("BRL 과제", deadline, 21, true))).andExpect(status().isOk());
+
+        // API 로 읽는다 — 원시 SQL 은 아직 플러시되지 않은 수정을 보지 못해 예전 값을 돌려준다
+        mvc.perform(get(range(deadline)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].startDate").value(deadline.minusDays(21).toString()))
+                .andExpect(jsonPath("$.data[0].endDate").value(deadline.toString()));
+    }
+
+    @Test
     void renamingTheProjectIsReflectedWithoutTouchingTheEventRow() throws Exception {
         LocalDate deadline = today().plusDays(10);
         String id = create(body("옛 이름", deadline, 21, true));
