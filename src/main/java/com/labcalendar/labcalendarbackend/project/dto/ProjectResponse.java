@@ -17,5 +17,6 @@ public record ProjectResponse(
         int leadTimeDays,
         boolean active,
         int dDay,
+        boolean deadlineImminent,
         LocalDate preparationStartDate) {
 }
