@@ -12,6 +12,18 @@ import static com.labcalendar.labcalendarbackend.expense.importing.ExcelReadExce
 class ExcelLedgerReaderTests {
     private final ExcelLedgerReader reader = new ExcelLedgerReader();
 
+    @Test
+    void preservesSheetNamesForTheFutureClassifier() throws Exception {
+        var cases = java.util.stream.Stream.concat(
+                SheetNameCases.DESIGN_CASES.stream(), SheetNameCases.PROPOSED_CASES.stream()).toList();
+        try (var workbook = new XSSFWorkbook()) {
+            for (var example : cases) workbook.createSheet(example.name());
+            assertThat(reader.read("sheet-names.xlsx", bytes(workbook)))
+                    .extracting(ExcelLedgerReader.RawSheet::name)
+                    .containsExactlyElementsOf(cases.stream().map(SheetNameCases.NameCase::name).toList());
+        }
+    }
+
     private byte[] bytes(XSSFWorkbook workbook) throws Exception {
         var output = new ByteArrayOutputStream();
         workbook.write(output);

@@ -20,4 +20,6 @@ IntelliJ에서 `ExcelLedgerReaderTests`를 열고 클래스 왼쪽 실행 버튼
 
 KAN-54 합의 후 시트 연월·중복 월·A~D 머리글 검증을 추가해야 KAN-56 전체가 완료된다. 월 반영 정책 및 업로드 엔드포인트는 이 기초 PR에 포함하지 않는다.
 
+시트 이름별 예상 결과와 합의 대기 항목은 [테스트 준비표](sheet-name-test-plan.md)에 정리했다. 테스트용 사례는 `SheetNameCases`에 있으며, 아직 월 분류기가 구현된 것은 아니다.
+
 참고: [POI 배포](https://poi.apache.org/download.html), [DataFormatter](https://poi.apache.org/apidocs/dev/org/apache/poi/ss/usermodel/DataFormatter.html)
