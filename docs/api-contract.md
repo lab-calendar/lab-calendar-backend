@@ -318,6 +318,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
   "leadTimeDays": 21,
   "active": true,
   "dDay": 20,
+  "deadlineImminent": false,
   "preparationStartDate": "2026-09-05"
 }
 ```
@@ -331,6 +332,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | `leadTimeDays` | number | ✅ | 준비 기간(일). 0~182 정수, 기본 21 |
 | `active` | boolean | ✅ | false 면 준비 기간 일정을 캘린더에서 제외 |
 | `dDay` | number | ✅ | **서버 계산값** (7.2) |
+| `deadlineImminent` | boolean | ✅ | 활성 과제이고 `0 <= dDay <= 7`이면 true. 지난 마감·비활성 과제는 false |
 | `preparationStartDate` | `YYYY-MM-DD` | ✅ | **서버 계산값.** `endDate - leadTimeDays` |
 
 ### 7.2 서버가 계산해서 내려줘야 하는 값
@@ -340,6 +342,10 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 `dDay` 는 서버의 `Asia/Seoul` 자정 기준 마감까지 남은 일수입니다. 당일은 `0`, 지난 과제는 음수입니다. 화면에서 계산하면 기기 시계나 타임존에 따라 사람마다 다른 D-Day 를 보게 됩니다 (KAN-52 완료 조건).
 
 **KAN-52 D-Day 위젯에 별도 엔드포인트는 필요 없습니다.** 이 목록이 `dDay` 를 포함하고 마감순으로 정렬돼 오면 프론트가 상위 N건을 잘라 씁니다.
+
+**KAN-50 적용:** 별도 `/api/projects/dday` 대신 기존 과제 API 응답을 사용합니다. 목록은 활성 과제를 먼저, 각 그룹에서 마감일 오름차순으로 반환합니다. 지난 과제도 음수 D-Day로 유지하여 기존 위젯의 지연 과제 표시를 보존합니다. 위젯은 비활성 과제를 제외하고 상위 N건을 사용합니다.
+
+`deadlineImminent`는 서버가 같은 서울 기준 날짜로 계산하는 마감 임박 플래그입니다. 오늘과 7일 뒤는 포함하고, 8일 뒤·지난 마감·비활성 과제는 제외합니다. 조회뿐 아니라 등록·수정 응답에도 포함됩니다. 기존 클라이언트가 `dDay`로 표시를 판단하는 동작은 그대로 호환됩니다.
 
 ### 7.3 과제와 준비 기간 일정
 
@@ -358,7 +364,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | PUT | `/api/projects/{id}` | 과제 입력값 | `{ "data": 과제 객체 }` |
 | DELETE | `/api/projects/{id}` | — | 본문 없이 2xx |
 
-**과제 입력값** = 과제 객체에서 `id`, `dDay`, `preparationStartDate` 를 뺀 것
+**과제 입력값** = 과제 객체에서 `id`, `dDay`, `deadlineImminent`, `preparationStartDate` 를 뺀 것
 
 ```json
 {

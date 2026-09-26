@@ -96,6 +96,7 @@ public class ProjectService {
     }
 
     private ProjectResponse toResponse(ResearchProject project, LocalDate today) {
+        int dDay = ProjectSchedule.dDay(today, project.getEndDate());
         return new ProjectResponse(
                 String.valueOf(project.getId()),
                 project.getName(),
@@ -103,7 +104,8 @@ public class ProjectService {
                 project.getEndDate(),
                 project.getLeadTimeDays(),
                 project.getActive(),
-                ProjectSchedule.dDay(today, project.getEndDate()),
+                dDay,
+                project.getActive() && dDay >= 0 && dDay <= 7,
                 ProjectSchedule.preparationStart(project.getEndDate(), project.getLeadTimeDays()));
     }
 }
