@@ -105,7 +105,7 @@ public class ProjectService {
                 project.getLeadTimeDays(),
                 project.getActive(),
                 dDay,
-                project.getActive() && dDay >= 0 && dDay <= 7,
+                project.getActive() && dDay >= 0 && dDay <= ProjectSchedule.IMMINENT_WITHIN_DAYS,
                 ProjectSchedule.preparationStart(project.getEndDate(), project.getLeadTimeDays()));
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.servlet.http.Cookie;
+import com.jayway.jsonpath.JsonPath;
 import com.labcalendar.labcalendarbackend.auth.AuthCookie;
 import com.labcalendar.labcalendarbackend.auth.AuthTier;
 import com.labcalendar.labcalendarbackend.auth.token.AuthTokenCodec;
@@ -60,7 +61,7 @@ class ProjectDeadlineApiTests {
                 .andExpect(jsonPath("$.data.dDay").value(days))
                 .andExpect(jsonPath("$.data.deadlineImminent").value(imminent))
                 .andReturn().getResponse().getContentAsString();
-        return response.replaceAll(".*\"id\"\\s*:\\s*\"(\\d+)\".*", "$1");
+        return JsonPath.read(response, "$.data.id");
     }
 
     @Test

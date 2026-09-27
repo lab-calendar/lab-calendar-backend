@@ -11,6 +11,8 @@ import java.time.temporal.ChronoUnit;
  */
 final class ProjectSchedule {
 
+    static final int IMMINENT_WITHIN_DAYS = 7;
+
     private ProjectSchedule() {
     }
 
