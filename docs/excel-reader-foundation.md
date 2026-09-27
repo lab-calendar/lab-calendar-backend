@@ -1,6 +1,6 @@
 # KAN-56 엑셀 읽기 기초
 
-KAN-54 리뷰 중 독립적으로 준비하는 읽기 계층이다. 업로드 API·DB 저장·날짜 이어받기·월 식별·머리글 검증·인원 파싱은 아직 구현하지 않는다.
+머지된 KAN-54 §3.3에 따른 읽기 계층이다. ExcelLedgerReader가 원시 셀을 읽고 LedgerSheetSelector가 월 식별·중복 월·고정 머리글을 검증한다. 업로드 API·DB 저장·날짜 이어받기·인원 파싱은 후속 작업이다.
 
 `ExcelLedgerReader.read(fileName, bytes)`는 시트 이름, 실제 행 번호(1부터), A~D 네 칸의 표시 문자열과 오류 셀 여부를 반환한다. 누락 셀은 빈 문자열이다. XML에 없는 행은 생성하지 않으며, 빈 시트와 연도 없는 시트도 읽은 그대로 반환한다. 후속 파서가 업무 규칙을 적용한다. 결과를 로그에 출력하지 않는다.
 
@@ -18,8 +18,10 @@ Apache POI 5.5.1의 XSSFWorkbook과 DataFormatter를 사용한다. 수식은 재
 
 IntelliJ에서 `ExcelLedgerReaderTests`를 열고 클래스 왼쪽 실행 버튼을 누른다. `readsSheetNamesFourColumnsAndOriginalRowNumbers`가 가장 작은 사용 예제다. 전체 테스트는 `gradlew.bat test`, 읽기 테스트만 실행하려면 `gradlew.bat test --tests '*ExcelLedgerReaderTests'`.
 
-KAN-54 합의 후 시트 연월·중복 월·A~D 머리글 검증을 추가해야 KAN-56 전체가 완료된다. 월 반영 정책 및 업로드 엔드포인트는 이 기초 PR에 포함하지 않는다.
+사용법: `selector.select(reader.read(fileName, bytes))`. 반환값 months에는 시트 원래 이름, YearMonth, 머리글을 제외한 원시 행이 있고 skippedSheets에는 건너뛴 이름과 YEAR_MISSING/NOT_MONTH_SHEET가 있다. 행 번호와 파일 내 시트 순서를 보존하며 유효한 머리글만 있는 월은 빈 행 목록이다. A1은 월 판별이나 머리글 검증에 사용하지 않는다. 오류 셀인 B1~D1은 유효한 머리글로 인정하지 않는다.
 
-시트 이름별 예상 결과와 합의 대기 항목은 [테스트 준비표](sheet-name-test-plan.md)에 정리했다. 테스트용 사례는 `SheetNameCases`에 있으며, 아직 월 분류기가 구현된 것은 아니다.
+중복 월은 DUPLICATE_MONTH, 모든 시트가 제외되면 NO_MONTH_SHEETS, 머리글 누락·이동은 INVALID_LAYOUT, 숫자 월이 1~12 밖이면 INVALID_MONTH로 파일 전체를 거부한다. HTTP 매핑은 아직 없다. LedgerSheetSelectorTests에서 분류·검증과 가상 워크북 연결을 테스트한다.
+
+시트 이름별 예상 결과와 합의 대기 항목은 [테스트 준비표](sheet-name-test-plan.md)에 정리했다. DESIGN_CASES는 실제 분류 테스트에 연결했다. 정규식 강화 제안은 아직 적용하지 않았다. 원시 읽기 단계는 전체 시트 A~D를 읽으므로 제외 시트의 저장값 없는 수식도 파일 오류가 된다.
 
 참고: [POI 배포](https://poi.apache.org/download.html), [DataFormatter](https://poi.apache.org/apidocs/dev/org/apache/poi/ss/usermodel/DataFormatter.html)

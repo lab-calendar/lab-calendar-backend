@@ -4,7 +4,8 @@ package com.labcalendar.labcalendarbackend.expense.importing;
 public class ExcelReadException extends RuntimeException {
     public enum Code {
         INVALID_FILE_TYPE, EMPTY_FILE, FILE_TOO_LARGE, INVALID_WORKBOOK,
-        EMPTY_WORKBOOK, WORKBOOK_TOO_LARGE, FORMULA_CACHE_MISSING
+        EMPTY_WORKBOOK, WORKBOOK_TOO_LARGE, FORMULA_CACHE_MISSING,
+        INVALID_MONTH, DUPLICATE_MONTH, NO_MONTH_SHEETS, INVALID_LAYOUT
     }
 
     private final Code code;
