@@ -40,7 +40,6 @@ out/
 src/main/resources/application-local.yml
 deploy/.env
 
-# Real ledger files contain participant information; tests generate synthetic workbooks.
+# Ledger originals contain personal information; use synthetic test workbooks.
 *.xlsx
 *.xls
-
