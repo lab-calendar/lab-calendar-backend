@@ -1,0 +1,155 @@
+{
+  "notice": "Proposed HTTP 200 examples; not live API output.",
+  "previewPartial": {
+    "data": {
+      "dryRun": true,
+      "previewToken": "EXAMPLE_ONLY_NOT_A_VALID_TOKEN",
+      "fileName": "sample.xlsx",
+      "months": [
+        {
+          "month": "2026-09",
+          "status": "BLOCKED",
+          "added": 0,
+          "removed": 0,
+          "unchanged": 0
+        },
+        {
+          "month": "2026-08",
+          "status": "READY",
+          "added": 2,
+          "removed": 0,
+          "unchanged": 1
+        }
+      ],
+      "skippedSheets": [
+        {
+          "sheet": "7월",
+          "reason": "YEAR_MISSING"
+        }
+      ],
+      "problems": [
+        {
+          "sheet": "2026년 9월",
+          "row": 14,
+          "level": "ERROR",
+          "code": "CARD_MISSING",
+          "message": "과제명이 비어 있어 해당 월 전체를 유지합니다."
+        }
+      ],
+      "totals": {
+        "added": 2,
+        "removed": 0,
+        "unchanged": 1,
+        "skippedRows": 1,
+        "blockedMonths": 1
+      }
+    }
+  },
+  "applyPartial": {
+    "data": {
+      "dryRun": false,
+      "fileName": "sample.xlsx",
+      "months": [
+        {
+          "month": "2026-09",
+          "status": "BLOCKED",
+          "added": 0,
+          "removed": 0,
+          "unchanged": 0
+        },
+        {
+          "month": "2026-08",
+          "status": "READY",
+          "added": 2,
+          "removed": 0,
+          "unchanged": 1
+        }
+      ],
+      "skippedSheets": [
+        {
+          "sheet": "7월",
+          "reason": "YEAR_MISSING"
+        }
+      ],
+      "problems": [
+        {
+          "sheet": "2026년 9월",
+          "row": 14,
+          "level": "ERROR",
+          "code": "CARD_MISSING",
+          "message": "과제명이 비어 있어 해당 월 전체를 유지합니다."
+        }
+      ],
+      "totals": {
+        "added": 2,
+        "removed": 0,
+        "unchanged": 1,
+        "skippedRows": 1,
+        "blockedMonths": 1
+      }
+    }
+  },
+  "previewAllBlocked": {
+    "data": {
+      "dryRun": true,
+      "previewToken": "EXAMPLE_ONLY_NOT_A_VALID_TOKEN",
+      "fileName": "sample.xlsx",
+      "months": [
+        {
+          "month": "2026-09",
+          "status": "BLOCKED",
+          "added": 0,
+          "removed": 0,
+          "unchanged": 0
+        }
+      ],
+      "skippedSheets": [
+        {
+          "sheet": "7월",
+          "reason": "YEAR_MISSING"
+        }
+      ],
+      "problems": [
+        {
+          "sheet": "2026년 9월",
+          "row": 14,
+          "level": "ERROR",
+          "code": "CARD_MISSING",
+          "message": "과제명이 비어 있어 해당 월 전체를 유지합니다."
+        }
+      ],
+      "totals": {
+        "added": 0,
+        "removed": 0,
+        "unchanged": 0,
+        "skippedRows": 1,
+        "blockedMonths": 1
+      }
+    }
+  },
+  "previewEmptyReady": {
+    "data": {
+      "dryRun": true,
+      "previewToken": "EXAMPLE_ONLY_NOT_A_VALID_TOKEN",
+      "fileName": "sample.xlsx",
+      "months": [
+        {
+          "month": "2026-09",
+          "status": "READY",
+          "added": 0,
+          "removed": 2,
+          "unchanged": 0
+        }
+      ],
+      "skippedSheets": [],
+      "problems": [],
+      "totals": {
+        "added": 0,
+        "removed": 2,
+        "unchanged": 0,
+        "skippedRows": 0,
+        "blockedMonths": 0
+      }
+    }
+  }
+}
