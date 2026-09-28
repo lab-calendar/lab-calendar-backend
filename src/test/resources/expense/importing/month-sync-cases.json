@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "scope": "Static expected outcomes only; no synchronization implementation or DB verification.",
+  "keyConvention": "Symbolic content keys scoped by month; not real hashes or database IDs. Deleted expenses remain stored as inactive.",
+  "scenarios": [
+    {
+      "id": "first_import",
+      "beforeActiveByMonth": {},
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A"
+          ]
+        },
+        "counts": {
+          "added": 1,
+          "removed": 0,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [],
+        "createEventKeys": [
+          "A"
+        ],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "same_file_again",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 0,
+          "unchanged": 1
+        },
+        "preserveEventKeys": [
+          "A"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "missing_record",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A",
+          "B"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 1,
+          "unchanged": 1
+        },
+        "preserveEventKeys": [
+          "A"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [
+          "B"
+        ],
+        "deactivateExpenseKeys": [
+          "B"
+        ]
+      }
+    },
+    {
+      "id": "absent_month",
+      "beforeActiveByMonth": {
+        "2026-08": [
+          "C"
+        ],
+        "2026-09": [
+          "A"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-08": [
+            "C"
+          ],
+          "2026-09": [
+            "A"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 0,
+          "unchanged": 1
+        },
+        "preserveEventKeys": [
+          "C",
+          "A"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "blocked_month",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A",
+          "B"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "BLOCKED",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A",
+            "B"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 0,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [
+          "A",
+          "B"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "valid_empty_month",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A",
+          "B"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": []
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": []
+        },
+        "counts": {
+          "added": 0,
+          "removed": 2,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [],
+        "createEventKeys": [],
+        "deleteEventKeys": [
+          "A",
+          "B"
+        ],
+        "deactivateExpenseKeys": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    {
+      "id": "error_empty_month",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A",
+          "B"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "BLOCKED",
+          "records": []
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A",
+            "B"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 0,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [
+          "A",
+          "B"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "partial_months",
+      "beforeActiveByMonth": {
+        "2026-08": [
+          "C"
+        ],
+        "2026-09": [
+          "A",
+          "B"
+        ]
+      },
+      "input": {
+        "2026-08": {
+          "status": "READY",
+          "records": [
+            "C",
+            "D"
+          ]
+        },
+        "2026-09": {
+          "status": "BLOCKED",
+          "records": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-08": [
+            "C",
+            "D"
+          ],
+          "2026-09": [
+            "A",
+            "B"
+          ]
+        },
+        "counts": {
+          "added": 1,
+          "removed": 0,
+          "unchanged": 1
+        },
+        "preserveEventKeys": [
+          "C",
+          "A",
+          "B"
+        ],
+        "createEventKeys": [
+          "D"
+        ],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "changed_content",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A2"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A2"
+          ]
+        },
+        "counts": {
+          "added": 1,
+          "removed": 1,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [],
+        "createEventKeys": [
+          "A2"
+        ],
+        "deleteEventKeys": [
+          "A"
+        ],
+        "deactivateExpenseKeys": [
+          "A"
+        ]
+      }
+    },
+    {
+      "id": "warning_only",
+      "beforeActiveByMonth": {},
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "W"
+          ],
+          "warning": "PARTICIPANTS_EMPTY"
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "W"
+          ]
+        },
+        "counts": {
+          "added": 1,
+          "removed": 0,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [],
+        "createEventKeys": [
+          "W"
+        ],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "duplicate_rows",
+      "beforeActiveByMonth": {},
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A#1",
+            "A#2"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A#1",
+            "A#2"
+          ]
+        },
+        "counts": {
+          "added": 2,
+          "removed": 0,
+          "unchanged": 0
+        },
+        "preserveEventKeys": [],
+        "createEventKeys": [
+          "A#1",
+          "A#2"
+        ],
+        "deleteEventKeys": [],
+        "deactivateExpenseKeys": []
+      }
+    },
+    {
+      "id": "one_duplicate_removed",
+      "beforeActiveByMonth": {
+        "2026-09": [
+          "A#1",
+          "A#2"
+        ]
+      },
+      "input": {
+        "2026-09": {
+          "status": "READY",
+          "records": [
+            "A#1"
+          ]
+        }
+      },
+      "expected": {
+        "afterActiveByMonth": {
+          "2026-09": [
+            "A#1"
+          ]
+        },
+        "counts": {
+          "added": 0,
+          "removed": 1,
+          "unchanged": 1
+        },
+        "preserveEventKeys": [
+          "A#1"
+        ],
+        "createEventKeys": [],
+        "deleteEventKeys": [
+          "A#2"
+        ],
+        "deactivateExpenseKeys": [
+          "A#2"
+        ]
+      }
+    }
+  ]
+}

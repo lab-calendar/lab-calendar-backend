@@ -21,7 +21,7 @@ class SchemaMigrationTests {
 
     @Test
     void startupMigratesAndRestartDoesNotRepeatSeedData() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.002");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.003");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForList("SELECT code FROM category ORDER BY sort_order", String.class))
                 .containsExactly("project", "lab", "card");
