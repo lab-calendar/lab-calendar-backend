@@ -274,7 +274,7 @@ public class EventService {
                 CardExpense expense = expenseById.get(event.getCardExpenseId());
                 yield expense == null
                         ? new Display(event.getTitle(), null)
-                        : new Display(expense.getCardName(), expense.getPurpose());
+                        : new Display(expense.getCardName(), expense.getPurpose().isBlank() ? null : expense.getPurpose());
             }
             case MANUAL -> new Display(event.getTitle(), manualDetail(event, memberById));
         };
