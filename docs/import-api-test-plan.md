@@ -1,5 +1,7 @@
 # KAN-59 업로드 API 준비
 
+2026-09-28: API와 실행 테스트를 추가했다. 아래는 준비 당시 계획이며 현재 선택은 [구현 문서](import-api-implementation.md)를 따른다. 정적 응답 파일은 참고 예시, 실제 API 테스트는 CardImportApiTests다.
+
 기준: 머지된 KAN-54 §6.2·7.1 및 기존 ApiResponse/ApiError 형식. **요청·응답 예시와 검증 계획이며, 컨트롤러·토큰·DB 반영은 아직 구현하지 않았다.** KAN-56~58 리뷰 결과를 반영한 후 실행 가능한 API 테스트로 연결한다.
 
 ## 요청

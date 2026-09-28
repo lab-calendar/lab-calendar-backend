@@ -22,6 +22,30 @@ import com.labcalendar.labcalendarbackend.common.api.ApiError;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(com.labcalendar.labcalendarbackend.expense.importing.ImportApiException.class)
+    public ResponseEntity<ApiError> importFailure(com.labcalendar.labcalendarbackend.expense.importing.ImportApiException ex) {
+        String message = ex.status() == 409 ? "미리보기가 만료되었거나 내용이 변경되었습니다. 다시 미리보기해 주세요."
+                : "파일과 미리보기 정보를 확인해 주세요.";
+        return ResponseEntity.status(ex.status()).body(new ApiError(ex.code(), message, Map.of()));
+    }
+
+    @ExceptionHandler(com.labcalendar.labcalendarbackend.expense.importing.ExcelReadException.class)
+    public ResponseEntity<ApiError> excelFailure(com.labcalendar.labcalendarbackend.expense.importing.ExcelReadException ex) {
+        int status = ex.code() == com.labcalendar.labcalendarbackend.expense.importing.ExcelReadException.Code.FILE_TOO_LARGE ? 413 : 400;
+        return ResponseEntity.status(status).body(new ApiError(ex.code().name(), "엑셀 파일의 형식과 내용을 확인해 주세요.", Map.of()));
+    }
+
+    @ExceptionHandler(com.labcalendar.labcalendarbackend.expense.importing.LedgerSyncException.class)
+    public ResponseEntity<ApiError> syncFailure(com.labcalendar.labcalendarbackend.expense.importing.LedgerSyncException ex) {
+        int status = switch (ex.getMessage()) {
+            case "NO_APPLICABLE_MONTHS" -> 422;
+            case "UNSUPPORTED_DATABASE_YEAR", "ROW_MONTH_MISMATCH", "DUPLICATE_MONTH", "NO_MONTHS" -> 400;
+            default -> 500;
+        };
+        return ResponseEntity.status(status).body(new ApiError(ex.getMessage(),
+                status == 422 ? "반영 가능한 월이 없습니다. 오류 행을 수정해 주세요." : "카드 내역을 반영하지 못했습니다.", Map.of()));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiError> business(BusinessException exception) {
         return ResponseEntity.status(exception.errorCode().status()).body(ApiError.of(exception.errorCode()));

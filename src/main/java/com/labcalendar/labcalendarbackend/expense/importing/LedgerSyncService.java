@@ -34,6 +34,39 @@ public class LedgerSyncService {
     }
     private record Stored(long id, String key, boolean active) {}
 
+    // Package-only gateway for KAN-59: verification and apply share the reconciliation lock.
+    <T> T withImportLock(java.util.function.Supplier<T> work) { return locked(work); }
+
+    record PreviewState(Result result, String fingerprint) {}
+    PreviewState previewState(List<ParsedMonth> months) {
+        validate(months);
+        return locked(() -> transaction.execute(status -> new PreviewState(reconcile(months, false), fingerprint(months))));
+    }
+
+    String fingerprint(List<ParsedMonth> months) {
+        var state = new ArrayList<Object>();
+        for (var month : months.stream().map(ParsedMonth::month).sorted().toList()) {
+            String document = "ledger:" + month;
+            state.add(document);
+            state.add(jdbc.queryForList("""
+                    SELECT id, source_document_id, source_record_id, used_on, card_name, purpose,
+                    usage_type, participant_names_raw, active FROM card_expense WHERE source_document_id=? ORDER BY id
+                    """, document));
+            state.add(jdbc.queryForList("""
+                    SELECT e.id, e.category_id, e.owner_member_id, e.research_project_id, e.card_expense_id,
+                    e.title, e.memo, e.manual_detail, e.start_date, e.end_date, e.all_day, e.start_time, e.end_time, e.source
+                    FROM event e JOIN card_expense c ON c.id=e.card_expense_id WHERE c.source_document_id=? ORDER BY e.id
+                    """, document));
+            state.add(jdbc.queryForList("""
+                    SELECT p.id, p.event_id, p.member_id, p.display_name, p.position FROM event_participant p
+                    JOIN event e ON e.id=p.event_id JOIN card_expense c ON c.id=e.card_expense_id
+                    WHERE c.source_document_id=? ORDER BY p.id
+                    """, document));
+        }
+        // Include nulls and field boundaries; omit audit timestamps so unchanged replays remain valid.
+        return PreviewTokenCodec.hash(new tools.jackson.databind.json.JsonMapper().writeValueAsBytes(state));
+    }
+
     public LedgerSyncService(JdbcTemplate jdbc, PlatformTransactionManager manager, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
