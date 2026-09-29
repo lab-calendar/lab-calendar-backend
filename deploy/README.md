@@ -40,6 +40,7 @@ gunzip -c ~/mysql-backups/lab_calendar-YYYYMMDD-HHMMSS.sql.gz \
 
 - `docker-compose.yml` — mysql, backend, nginx(프론트 이미지), certbot 4개 서비스
 - `backup-mysql.sh` — 일일 DB 백업 스크립트 (cron으로 실행)
+- `set-auth-passwords.sh` — 공용 비밀번호를 화면에 안 보이게 입력받아 해시만 `.env`에 저장
 - `nginx/nginx.conf` — 정적 파일 서빙 + `/api/` 리버스 프록시 + TLS. 호스트에서
   볼륨으로 마운트되므로, 이미지 재배포 없이 이 파일만 바꾸고 `docker compose up -d nginx`로 반영 가능
 - `init-letsencrypt.sh` — 최초 인증서 발급용 부트스트랩 스크립트 (더미 인증서 →
