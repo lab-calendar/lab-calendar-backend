@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "spring.datasource.url=jdbc:h2:mem:kan59;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=${MIGRATION_TEST_URL:jdbc:h2:mem:kan59;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}",
         "spring.servlet.multipart.max-file-size=5MB", "spring.servlet.multipart.max-request-size=6MB",
         "spring.servlet.multipart.file-size-threshold=6MB"})
 @AutoConfigureMockMvc

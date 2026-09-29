@@ -46,7 +46,7 @@ public class LedgerSyncService {
     record PreviewState(Result result, String fingerprint) {}
     PreviewState previewState(List<ParsedMonth> months) {
         validate(months);
-        return locked(() -> transaction.execute(status -> new PreviewState(reconcile(months, false), fingerprint(months))));
+        return locked(() -> readTransaction.execute(status -> new PreviewState(reconcile(months, false), fingerprint(months))));
     }
 
     String fingerprint(List<ParsedMonth> months) {
