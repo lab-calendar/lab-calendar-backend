@@ -49,6 +49,9 @@ public class SyncLog {
     @Column(name = "skipped_count", nullable = false)
     private Integer skippedCount = 0;
 
+    @Column(name = "deactivated_count", nullable = false)
+    private Integer deactivatedCount = 0;
+
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 }
