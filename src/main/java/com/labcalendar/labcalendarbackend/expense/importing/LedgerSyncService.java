@@ -25,6 +25,7 @@ import static com.labcalendar.labcalendarbackend.expense.importing.LedgerRowPars
 @Service
 public class LedgerSyncService {
     private static final ReentrantLock LOCK = new ReentrantLock(true);
+    private static final tools.jackson.databind.json.JsonMapper MAPPER = new tools.jackson.databind.json.JsonMapper();
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final TransactionTemplate transaction;
@@ -40,14 +41,49 @@ public class LedgerSyncService {
     }
     private record Stored(long id, String key, boolean active) {}
 
+    // Package-only gateway for KAN-59: verification and apply share the reconciliation lock.
+    <T> T withImportLock(java.util.function.Supplier<T> work) { return locked(work); }
+
+    record PreviewState(Result result, String fingerprint) {}
+    PreviewState previewState(List<ParsedMonth> months) {
+        validate(months);
+        return locked(() -> readTransaction.execute(status -> new PreviewState(reconcile(months, false), fingerprint(months))));
+    }
+
+    String fingerprint(List<ParsedMonth> months) {
+        var state = new ArrayList<Object>();
+        for (var month : months.stream().map(ParsedMonth::month).sorted().toList()) {
+            String document = "ledger:" + month;
+            state.add(document);
+            state.add(jdbc.queryForList("""
+                    SELECT id, source_document_id, source_record_id, used_on, card_name, purpose,
+                    usage_type, participant_names_raw, active FROM card_expense WHERE source_document_id=? ORDER BY id
+                    """, document));
+            state.add(jdbc.queryForList("""
+                    SELECT e.id, e.category_id, e.owner_member_id, e.research_project_id, e.card_expense_id,
+                    e.title, e.memo, e.manual_detail, e.start_date, e.end_date, e.all_day, e.start_time, e.end_time, e.source
+                    FROM event e JOIN card_expense c ON c.id=e.card_expense_id WHERE c.source_document_id=? ORDER BY e.id
+                    """, document));
+            state.add(jdbc.queryForList("""
+                    SELECT p.id, p.event_id, p.member_id, p.display_name, p.position FROM event_participant p
+                    JOIN event e ON e.id=p.event_id JOIN card_expense c ON c.id=e.card_expense_id
+                    WHERE c.source_document_id=? ORDER BY p.id
+                    """, document));
+        }
+        // Include nulls and field boundaries; omit audit timestamps so unchanged replays remain valid.
+        return PreviewTokenCodec.hash(MAPPER.writeValueAsBytes(state));
+    }
+
     public LedgerSyncService(JdbcTemplate jdbc, PlatformTransactionManager manager, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.transaction = new TransactionTemplate(manager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         this.readTransaction = new TransactionTemplate(manager);
         this.readTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.readTransaction.setReadOnly(true);
+        this.readTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
     public Result preview(List<ParsedMonth> months) {
@@ -56,9 +92,17 @@ public class LedgerSyncService {
     }
 
     public Result apply(String fileName, List<ParsedMonth> months) {
+        return applyChecked(fileName, months, () -> {});
+    }
+
+    Result applyVerified(String fileName, List<ParsedMonth> months, java.util.function.Consumer<String> verify) {
+        return applyChecked(fileName, months, () -> verify.accept(fingerprint(months)));
+    }
+
+    private Result applyChecked(String fileName, List<ParsedMonth> months, Runnable verify) {
         validate(months);
         if (months.stream().noneMatch(m -> m.status() == Status.READY)) {
-            throw new LedgerSyncException("NO_APPLICABLE_MONTHS");
+            throw new LedgerSyncException(LedgerSyncException.Code.NO_APPLICABLE_MONTHS);
         }
         String safeName = fileName == null ? "upload.xlsx" : fileName.replace('\\', '/');
         safeName = safeName.substring(safeName.lastIndexOf('/') + 1).replaceAll("[\\p{Cntrl}]", "_");
@@ -71,18 +115,22 @@ public class LedgerSyncService {
             LocalDateTime started = now();
             try {
                 return transaction.execute(status -> {
+                    verify.run();
                     Result result = reconcile(months, true);
                     log(label, started, result.partial() ? "PARTIAL" : "SUCCESS", result, months);
                     return result;
                 }); // Commit/rollback completes before the lock is released.
+            } catch (ImportApiException rejectedPreview) {
+                // A rejected preview is not an attempted import: no business writes or failure log.
+                throw rejectedPreview;
             } catch (RuntimeException failure) {
                 try {
                     transaction.executeWithoutResult(status -> log(label, started, "FAILED", null, months));
                 } catch (RuntimeException logFailure) {
-                    throw new LedgerSyncException("IMPORT_FAILED_LOG_UNAVAILABLE");
+                    throw new LedgerSyncException(LedgerSyncException.Code.IMPORT_FAILED_LOG_UNAVAILABLE);
                 }
                 // JDBC exception messages can contain cell values. Never forward their cause.
-                throw new LedgerSyncException("IMPORT_FAILED");
+                throw new LedgerSyncException(LedgerSyncException.Code.IMPORT_FAILED);
             }
         });
     }
@@ -90,23 +138,23 @@ public class LedgerSyncService {
     private <T> T locked(java.util.function.Supplier<T> work) {
         // Reject outer transactions: suspension could expose stale JPA state or hold DB locks.
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            throw new LedgerSyncException("OUTER_TRANSACTION_NOT_SUPPORTED");
+            throw new LedgerSyncException(LedgerSyncException.Code.OUTER_TRANSACTION_NOT_SUPPORTED);
         }
         LOCK.lock();
         try { return work.get(); } finally { LOCK.unlock(); }
     }
 
     private void validate(List<ParsedMonth> months) {
-        if (months == null || months.isEmpty()) throw new LedgerSyncException("NO_MONTHS");
+        if (months == null || months.isEmpty()) throw new LedgerSyncException(LedgerSyncException.Code.NO_MONTHS);
         Set<YearMonth> seen = new HashSet<>();
         for (var month : months) {
-            if (!seen.add(month.month())) throw new LedgerSyncException("DUPLICATE_MONTH");
+            if (!seen.add(month.month())) throw new LedgerSyncException(LedgerSyncException.Code.DUPLICATE_MONTH);
             if (month.month().getYear() < 1000 || month.month().getYear() > 9999) {
-                throw new LedgerSyncException("UNSUPPORTED_DATABASE_YEAR");
+                throw new LedgerSyncException(LedgerSyncException.Code.UNSUPPORTED_DATABASE_YEAR);
             }
             for (var entry : month.entries()) {
                 if (!YearMonth.from(entry.usedOn()).equals(month.month())) {
-                    throw new LedgerSyncException("ROW_MONTH_MISMATCH");
+                    throw new LedgerSyncException(LedgerSyncException.Code.ROW_MONTH_MISMATCH);
                 }
             }
         }
