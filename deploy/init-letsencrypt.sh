@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bootstrap Let's Encrypt certificates for the domains served by deploy/nginx/nginx.conf.
-# Run once from the deploy/ directory on the EC2 host, after `docker compose up -d backend`.
+# Run once from the deploy/ directory on the server, after `docker compose up -d mysql backend`.
 set -euo pipefail
 cd "$(dirname "$0")"
 

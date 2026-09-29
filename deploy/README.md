@@ -1,12 +1,13 @@
 # deploy/
 
-EC2 위에서 backend + nginx(프론트) + certbot을 Docker Compose로 띄우기 위한 배포 매니페스트.
+Lightsail 인스턴스 한 대(2GB 플랜, 월 $12) 위에서 mysql + backend + nginx(프론트) + certbot을
+Docker Compose로 띄우기 위한 배포 매니페스트. 별도 RDS는 쓰지 않는다 (KAN-77).
 
-## 최초 셋업 (EC2에서)
+## 최초 셋업 (서버에서)
 
 ```bash
 cp .env.example .env   # DB_*, CERTBOT_EMAIL, AUTH_* 채우기 (아래 "공용 비밀번호" 참고)
-docker compose up -d backend
+docker compose up -d mysql backend   # backend는 mysql healthcheck 통과 후 기동, Flyway가 스키마 생성
 CERTBOT_EMAIL=$(grep CERTBOT_EMAIL .env | cut -d= -f2) ./init-letsencrypt.sh
 docker compose up -d
 ```
@@ -15,9 +16,31 @@ docker compose up -d
 `docker compose up -d backend` / `docker compose up -d nginx`로 갱신한다
 (각 레포의 `.github/workflows/deploy.yml` 참고).
 
+## DB 백업
+
+RDS의 자동 백업이 없으므로 매일 `mysqldump`를 떠서 서버의 `~/mysql-backups`에 14일치 보관한다.
+
+```bash
+crontab -e
+# 매일 새벽 4시
+0 4 * * * $HOME/lab-calendar/deploy/backup-mysql.sh >> $HOME/mysql-backups/backup.log 2>&1
+```
+
+복원:
+
+```bash
+gunzip -c ~/mysql-backups/lab_calendar-YYYYMMDD-HHMMSS.sql.gz \
+  | docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" lab_calendar'
+```
+
+> 백업이 같은 서버 디스크에 있으므로 인스턴스 자체가 사라지면 같이 사라진다. 중요한
+> 데이터가 쌓이기 시작하면 Lightsail 자동 스냅샷(월 소액)을 켜거나 백업 파일을 밖으로 옮긴다.
+
 ## 파일 구성
 
-- `docker-compose.yml` — backend, nginx(프론트 이미지), certbot 3개 서비스
+- `docker-compose.yml` — mysql, backend, nginx(프론트 이미지), certbot 4개 서비스
+- `backup-mysql.sh` — 일일 DB 백업 스크립트 (cron으로 실행)
+- `set-auth-passwords.sh` — 공용 비밀번호를 화면에 안 보이게 입력받아 해시만 `.env`에 저장
 - `nginx/nginx.conf` — 정적 파일 서빙 + `/api/` 리버스 프록시 + TLS. 호스트에서
   볼륨으로 마운트되므로, 이미지 재배포 없이 이 파일만 바꾸고 `docker compose up -d nginx`로 반영 가능
 - `init-letsencrypt.sh` — 최초 인증서 발급용 부트스트랩 스크립트 (더미 인증서 →
@@ -39,7 +62,7 @@ docker compose up -d
 
 ### 해시 만들기
 
-EC2에 Docker가 있으므로 별도 설치 없이 만들 수 있다.
+서버에 Docker가 있으므로 별도 설치 없이 만들 수 있다.
 
 ```bash
 docker run --rm httpd:alpine htpasswd -bnBC 10 "" '원하는비밀번호' | tr -d ':\n'
@@ -107,7 +130,7 @@ curl -s -X POST https://lab-calendar.cloud/api/auth/login \
 **두 개를 따로 바꿀 수 있다.** 조회용만 교체하는 경우 편집용 사용자는 로그인을 유지한다.
 
 1. 새 해시를 만든다 (위 명령)
-2. EC2의 `deploy/.env` 에서 해당 줄만 교체한다
+2. 서버의 `deploy/.env` 에서 해당 줄만 교체한다
 3. `docker compose up -d backend` — 컨테이너가 새 환경변수로 다시 뜬다
 4. 로그로 기동을 확인하고, 새 비밀번호로 로그인이 되는지 확인한다
 

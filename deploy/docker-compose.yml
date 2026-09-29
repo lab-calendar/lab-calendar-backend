@@ -9,12 +9,41 @@ x-logging: &default-logging
     max-file: "5"
 
 services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: lab_calendar
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    # Shares a 2GB host with the JVM, so keep InnoDB small and skip the
+    # performance schema (~400MB saved); 10 users never need either.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_as_cs
+      - --innodb-buffer-pool-size=256M
+      - --performance-schema=OFF
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - internal
+
   backend:
     image: ghcr.io/lab-calendar/lab-calendar-backend:latest
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_URL: ${DB_URL}
+      DB_URL: jdbc:mysql://mysql:3306/lab_calendar?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       # 공용 비밀번호 인증 (KAN-34). 셋 중 하나라도 비면 앱이 기동을 거부한다.
@@ -66,5 +95,6 @@ networks:
   internal:
 
 volumes:
+  mysql-data:
   certbot-etc:
   certbot-www:
