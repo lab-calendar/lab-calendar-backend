@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.assertj.core.api.Assertions.*;
 import static com.labcalendar.labcalendarbackend.expense.importing.LedgerRowParser.*;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:kan58;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = "spring.datasource.url=${MIGRATION_TEST_URL:jdbc:h2:mem:kan58;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}")
 @AutoConfigureMockMvc
 class LedgerSyncServiceTests {
     @Autowired LedgerSyncService service;
@@ -160,17 +160,53 @@ class LedgerSyncServiceTests {
         var events = jdbc.queryForList("SELECT * FROM event");
         var participants = jdbc.queryForList("SELECT * FROM event_participant");
         jdbc.execute("ALTER TABLE event ADD CONSTRAINT test_failure CHECK (title <> 'FAIL')");
+        var blocked = new ParsedMonth("2026년 7월", YearMonth.of(2026, 7), List.of(), List.of(
+                new Problem("2026년 7월", 8, Level.ERROR, Code.INVALID_DATE),
+                new Problem("2026년 7월", 8, Level.ERROR, Code.CARD_MISSING),
+                new Problem("2026년 7월", 9, Level.WARNING, Code.PARTICIPANTS_EMPTY)));
         try {
-            assertThatThrownBy(() -> service.apply("file.xlsx", List.of(month("2026-09", "B"), month("2026-08", "FAIL"))))
+            assertThatThrownBy(() -> service.apply("file.xlsx", List.of(blocked, month("2026-09", "B"), month("2026-08", "FAIL"))))
                     .hasMessage("IMPORT_FAILED").hasNoCause();
         } finally {
-            jdbc.execute("ALTER TABLE event DROP CONSTRAINT test_failure");
+            String database = jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>)
+                    connection -> connection.getMetaData().getDatabaseProductName());
+            jdbc.execute("ALTER TABLE event DROP " + ("MySQL".equals(database) ? "CHECK" : "CONSTRAINT") + " test_failure");
         }
         assertThat(jdbc.queryForList("SELECT * FROM card_expense")).isEqualTo(expenses);
         assertThat(jdbc.queryForList("SELECT * FROM event")).isEqualTo(events);
         assertThat(jdbc.queryForList("SELECT * FROM event_participant")).isEqualTo(participants);
         assertThat(jdbc.queryForObject("SELECT status FROM sync_log ORDER BY id DESC LIMIT 1", String.class)).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("SELECT error_message FROM sync_log ORDER BY id DESC LIMIT 1", String.class)).isEqualTo("IMPORT_FAILED");
+        assertThat(jdbc.queryForObject("SELECT skipped_count FROM sync_log ORDER BY id DESC LIMIT 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForList("SELECT error_code FROM sync_log_error ORDER BY id", String.class))
+                .containsExactly("INVALID_DATE", "CARD_MISSING", "PARTICIPANTS_EMPTY");
+        assertThat(jdbc.queryForList("SELECT message FROM sync_log_error ORDER BY id", String.class))
+                .containsExactly("ERROR", "ERROR", "WARNING");
+    }
+
+    @Test
+    void previewUsesReadOnlyTransactionAndApplyLooksUpCategoryOnceForAllMonths() {
+        var modes = new ArrayList<Boolean>();
+        PlatformTransactionManager observingManager = new PlatformTransactionManager() {
+            public org.springframework.transaction.TransactionStatus getTransaction(org.springframework.transaction.TransactionDefinition definition) {
+                modes.add(definition.isReadOnly());
+                return manager.getTransaction(definition);
+            }
+            public void commit(org.springframework.transaction.TransactionStatus status) { manager.commit(status); }
+            public void rollback(org.springframework.transaction.TransactionStatus status) { manager.rollback(status); }
+        };
+        var observedJdbc = org.mockito.Mockito.spy(jdbc);
+        var observed = new LedgerSyncService(observedJdbc, observingManager, Clock.systemUTC());
+        var input = List.of(month("2026-09", "A", "B"), month("2026-08", "C"));
+        observed.preview(input);
+        assertThat(modes).containsExactly(true);
+        org.mockito.Mockito.verify(observedJdbc, org.mockito.Mockito.never())
+                .queryForObject("SELECT id FROM category WHERE code = 'card'", Long.class);
+        observed.apply("file.xlsx", input);
+        assertThat(modes).containsExactly(true, false);
+        org.mockito.Mockito.verify(observedJdbc, org.mockito.Mockito.times(1))
+                .queryForObject("SELECT id FROM category WHERE code = 'card'", Long.class);
+        assertThat(count("event")).isEqualTo(3);
     }
 
     @Test
