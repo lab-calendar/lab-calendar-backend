@@ -28,6 +28,8 @@ dependencies {
 	// BCrypt 해시 비교만 쓴다. 시큐리티 프레임워크 전체를 들이지 않는다.
 	implementation 'org.springframework.security:spring-security-crypto'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// 컨테이너 헬스체크용 (KAN-68). /actuator/health 가 DB 연결까지 확인한다.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.mysql:mysql-connector-j'

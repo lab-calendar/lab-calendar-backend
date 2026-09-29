@@ -122,3 +122,44 @@ curl -s -X POST https://lab-calendar.cloud/api/auth/login \
   방법이 없다. 잡히는 것은 같은 해시를 복붙한 경우까지다. 설정하는 사람이 확인해야 한다.
 - 평문 비밀번호와 해시는 저장소에 커밋하지 않는다. `.env` 는 gitignore 대상이다.
 - 비밀번호를 공유할 때는 이 문서가 아니라 별도 경로(비밀번호 관리자 등)를 쓴다.
+
+## 상태 확인과 로그 (KAN-68)
+
+### 컨테이너가 살아 있는지
+
+백엔드에 헬스체크가 붙어 있습니다. 프로세스만 떠 있는 것이 아니라 **DB 연결까지**
+확인하므로, DB 가 끊기면 `unhealthy` 로 바뀝니다.
+
+```bash
+docker compose ps
+# STATUS 가 "Up 2 hours (healthy)" 처럼 나옵니다
+```
+
+기동 직후 90초 동안은 실패를 세지 않습니다(`start_period`). 그 사이의 `starting`
+은 정상입니다.
+
+직접 물어볼 수도 있습니다. 바깥에서는 닿지 않고 서버 안에서만 됩니다 — nginx 는
+`/api` 만 넘깁니다.
+
+```bash
+docker compose exec backend wget -qO- http://localhost:8080/actuator/health
+# {"status":"UP"}
+```
+
+`DOWN` 이면 원인은 응답이 아니라 로그에 있습니다.
+
+### 로그 보기
+
+```bash
+docker compose logs -f backend          # 따라가며 보기
+docker compose logs --tail=200 backend  # 최근 200줄
+```
+
+로그는 컨테이너당 10MB × 5개로 잘립니다. 그 이상은 오래된 것부터 버려지므로
+디스크가 로그로 차지 않습니다. 오래 보관해야 할 것이 있으면 따로 내보내세요.
+
+### SQL 로그
+
+운영에서는 나오지 않습니다. 바인딩 값에 참석자 이름이 섞여 나가기 때문입니다.
+개발 중에 보려면 `application-local.yml` 에서 켜세요 (`.example` 파일에 주석으로
+적어 두었습니다).
