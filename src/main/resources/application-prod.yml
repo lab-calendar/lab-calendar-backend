@@ -5,6 +5,12 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+# nginx 가 TLS 를 끝내고 평문 HTTP 로 넘기므로, X-Forwarded-Proto 를 믿지 않으면 앱은
+# 요청을 http:// 로 본다. 그러면 브라우저의 Origin(https://...)이 교차 출처로 판정돼
+# CORS 403 이 난다 (KAN-78). 백엔드 포트는 compose 내부망에만 열려 있어 nginx 만 도달한다.
+server:
+  forward-headers-strategy: native
+
 logging:
   level:
     org.hibernate.SQL: warn
