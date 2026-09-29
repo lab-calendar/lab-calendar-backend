@@ -59,8 +59,8 @@ public class CardImportController {
                 result = state.result();
                 token = tokens.issue(hash, state.fingerprint(), monthHash);
             } else {
-                tokens.verify(previewToken, hash, sync.fingerprint(months), monthHash);
-                result = sync.apply(label, months);
+                result = sync.applyVerified(label, months,
+                        fingerprint -> tokens.verify(previewToken, hash, fingerprint, monthHash));
             }
             var problems = months.stream().flatMap(m -> m.problems().stream()).map(p -> new Problem(
                     p.sheet(), p.row(), p.level(), p.code().name(), p.level() == LedgerRowParser.Level.ERROR

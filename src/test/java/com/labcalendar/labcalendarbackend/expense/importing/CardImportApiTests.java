@@ -33,8 +33,24 @@ class CardImportApiTests {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired AuthTokenCodec auth;
+    @Autowired LedgerSyncService sync;
     @LocalServerPort int port;
     private static final String URL = "/api/card-expenses/imports";
+
+    @Test
+    void verificationRunsInsideWriteTransactionAndRejectionLeavesNoHistory() {
+        var months = List.of(new LedgerRowParser.ParsedMonth("2026년 9월", YearMonth.of(2026, 9), List.of(), List.of()));
+        assertThatThrownBy(() -> sync.applyVerified("sample.xlsx", months, fingerprint -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isFalse();
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
+                    .isEqualTo(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+            assertThat(fingerprint).isNotBlank();
+            throw new ImportApiException(409, "PREVIEW_STALE");
+        })).isInstanceOf(ImportApiException.class);
+        assertThat(count("card_expense")).isZero();
+        assertThat(count("sync_log")).isZero();
+    }
 
     @BeforeEach @AfterEach
     void clean() {
@@ -67,7 +83,9 @@ class CardImportApiTests {
     void rejectsMissingAndForgedTokensAndChangedFileWithoutWriting() throws Exception {
         byte[] file = workbook("A", false, false);
         String token = token(request(file, "true", null, AuthTier.EDITOR));
-        request(file, "false", null, AuthTier.EDITOR).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PREVIEW_TOKEN_REQUIRED"));
+        request(file, "false", null, AuthTier.EDITOR).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PREVIEW_TOKEN_REQUIRED"))
+                .andExpect(jsonPath("$.message").value("먼저 미리보기를 확인한 뒤 반영해 주세요."));
         request(file, "false", token + "x", AuthTier.EDITOR).andExpect(status().isBadRequest());
         request(workbook("B", false, false), "false", token, AuthTier.EDITOR).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PREVIEW_STALE"));
         assertThat(count("card_expense")).isZero();
@@ -141,7 +159,10 @@ class CardImportApiTests {
         request(new byte[0], "true", null, AuthTier.EDITOR).andExpect(status().isBadRequest());
         request("private-person".getBytes(), "true", null, AuthTier.EDITOR).andExpect(status().isBadRequest())
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-person"))));
-        request(new byte[ExcelLedgerReader.MAX_FILE_BYTES + 1], "true", null, AuthTier.EDITOR).andExpect(status().isPayloadTooLarge());
+        request(new byte[ExcelLedgerReader.MAX_FILE_BYTES + 1], "true", null, AuthTier.EDITOR)
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("FILE_TOO_LARGE"))
+                .andExpect(jsonPath("$.message").value("엑셀 파일은 5 MiB 이하로 업로드해 주세요."));
         request(workbook("A", false, false), "invalid", null, AuthTier.EDITOR).andExpect(status().isBadRequest());
         mvc.perform(multipart(URL).cookie(cookie(AuthTier.EDITOR))).andExpect(status().isBadRequest());
     }
@@ -160,6 +181,10 @@ class CardImportApiTests {
                 .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes.toByteArray())).build(),
                 java.net.http.HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(413);
+        var error = new tools.jackson.databind.json.JsonMapper().readTree(response.body());
+        assertThat(error.get("code").asText()).isEqualTo("FILE_TOO_LARGE");
+        assertThat(error.get("message").asText()).contains("5 MiB");
+        assertThat(error.get("fieldErrors").isObject()).isTrue();
     }
 
     @Test
