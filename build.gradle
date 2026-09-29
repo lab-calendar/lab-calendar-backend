@@ -43,6 +43,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// Workflow changes must invalidate the deployment-gate regression tests too.
+	inputs.files('.github/workflows/verify.yml', '.github/workflows/deploy.yml')
 }
 
 tasks.named('jar') {
