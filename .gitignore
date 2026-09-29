@@ -40,3 +40,6 @@ out/
 src/main/resources/application-local.yml
 deploy/.env
 
+# Ledger originals contain personal information; use synthetic test workbooks.
+*.xlsx
+*.xls

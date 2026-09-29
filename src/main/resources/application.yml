@@ -1,20 +1,73 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+      file-size-threshold: 6MB
   application:
     name: lab-calendar-backend
   profiles:
     active: local
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
-    show-sql: true
+    # 기본은 끈다. 개발자가 필요할 때 application-local.yml 에서 켠다.
+    #
+    # 여기를 true 로 두면 운영에서도 켜진다 — show-sql 은 로거가 아니라 System.out
+    # 으로 나가므로 logging.level 을 warn 으로 낮춰도 막히지 않는다.
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    clean-disabled: true
+    validate-migration-naming: true
+    placeholders:
+      tableOptions: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs"
 
 server:
   port: 8080
 
+# 컨테이너 헬스체크 (KAN-68).
+#
+# health 하나만 연다. 나머지 액추에이터 엔드포인트는 운영 정보를 그대로 흘리므로
+# 열지 않는다. nginx 는 /api 만 프록시하므로 이 경로는 바깥에서 닿지 않는다.
+#
+# 상세는 감춘다 — 실패 원인은 로그에 남고, 헬스체크가 DB 주소나 디스크 경로를
+# 응답에 실어 나를 이유가 없다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+
+springdoc:
+  override-with-generic-response: false
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+
 logging:
   level:
-    org.hibernate.SQL: debug
+    # SQL 문은 기본으로 남기지 않는다. 바인딩 값에 참석자 이름이 섞여 나가기도 한다.
+    org.hibernate.SQL: warn
+
+# 공용 비밀번호 인증 (KAN-34). 값은 환경에서 주입하며 저장소에 두지 않는다.
+lab-calendar:
+  auth:
+    editor-password-hash: ${AUTH_EDITOR_PASSWORD_HASH:}
+    viewer-password-hash: ${AUTH_VIEWER_PASSWORD_HASH:}
+    token-secret: ${AUTH_TOKEN_SECRET:}
+    token-ttl: PT12H
+    # 로컬은 평문 HTTP 라 Secure 쿠키가 전달되지 않는다. 운영 프로파일에서 켠다.
+    cookie-secure: false
