@@ -5,7 +5,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.YearMonth;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -23,6 +28,7 @@ public class LedgerSyncService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final TransactionTemplate transaction;
+    private final TransactionTemplate readTransaction;
 
     public record MonthResult(YearMonth month, Status status, int added, int removed, int unchanged) {}
     public record Result(List<MonthResult> months) {
@@ -39,11 +45,14 @@ public class LedgerSyncService {
         this.clock = clock;
         this.transaction = new TransactionTemplate(manager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.readTransaction = new TransactionTemplate(manager);
+        this.readTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.readTransaction.setReadOnly(true);
     }
 
     public Result preview(List<ParsedMonth> months) {
         validate(months);
-        return locked(() -> transaction.execute(status -> reconcile(months, false)));
+        return locked(() -> readTransaction.execute(status -> reconcile(months, false)));
     }
 
     public Result apply(String fileName, List<ParsedMonth> months) {
@@ -68,7 +77,7 @@ public class LedgerSyncService {
                 }); // Commit/rollback completes before the lock is released.
             } catch (RuntimeException failure) {
                 try {
-                    transaction.executeWithoutResult(status -> log(label, started, "FAILED", null, List.of()));
+                    transaction.executeWithoutResult(status -> log(label, started, "FAILED", null, months));
                 } catch (RuntimeException logFailure) {
                     throw new LedgerSyncException("IMPORT_FAILED_LOG_UNAVAILABLE");
                 }
@@ -105,6 +114,7 @@ public class LedgerSyncService {
 
     private Result reconcile(List<ParsedMonth> months, boolean write) {
         var results = new ArrayList<MonthResult>();
+        Long category = write ? jdbc.queryForObject("SELECT id FROM category WHERE code = 'card'", Long.class) : null;
         for (var month : months) {
             if (month.status() == Status.BLOCKED) {
                 results.add(new MonthResult(month.month(), Status.BLOCKED, 0, 0, 0));
@@ -144,7 +154,6 @@ public class LedgerSyncService {
                         jdbc.update("UPDATE card_expense SET active = TRUE, last_seen_at = ?, updated_at = ? WHERE id = ?",
                                 time, time, expenseId);
                     }
-                    long category = jdbc.queryForObject("SELECT id FROM category WHERE code = 'card'", Long.class);
                     long event = insert("""
                             INSERT INTO event (category_id, card_expense_id, title, memo, start_date, end_date,
                             all_day, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, TRUE, 'GOOGLE_SYNC', ?, ?)

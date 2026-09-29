@@ -1,5 +1,9 @@
 # KAN-58 현재 구현과 후속 연결
 
+2026-09-29 리뷰 반영: 카드 카테고리는 반영 요청당 한 번만 조회하며 미리보기에는 조회하지 않는다. 미리보기 전용 TransactionTemplate에 readOnly=true를 지정했다. 실패 이력에도 원래 months의 문제 위치·코드·등급과 오류 행 수를 보존한다. JDBC 예외 원문은 여전히 기록하지 않는다. 재활성화를 added로 세는 선택은 팀 리뷰에서 승인됐다.
+
+테스트 DB 주소는 MIGRATION_TEST_URL을 따라 H2와 MySQL에서 같은 동기화 테스트를 실행한다. 실패 주입용 CHECK 삭제 문법도 DB에 맞춘다.
+
 KAN-57 `LedgerRowParser.ParsedMonth`를 입력으로 받는 내부 `LedgerSyncService`를 구현했다. 업로드 엔드포인트는 없다. `preview(months)`는 DB 차이를 읽고 `apply(fileName, months)`는 정상 월을 반영한다. KAN-57 리뷰 후 입력 구조·오류 정책을 다시 맞춰야 한다.
 
 ## 반영 규칙
