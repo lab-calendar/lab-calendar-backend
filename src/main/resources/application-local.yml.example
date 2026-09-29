@@ -6,6 +6,14 @@ spring:
     username: root
     password: changeme
 
+# SQL 을 눈으로 보고 싶을 때만 켜세요. 공통 설정에서는 꺼져 있습니다 (KAN-68).
+#spring:
+#  jpa:
+#    show-sql: true
+#logging:
+#  level:
+#    org.hibernate.SQL: debug
+
 # 공용 비밀번호 인증 (KAN-34).
 #
 # 편집용·조회용 비밀번호를 각각 정하고 BCrypt 해시로 바꿔 넣으세요.
