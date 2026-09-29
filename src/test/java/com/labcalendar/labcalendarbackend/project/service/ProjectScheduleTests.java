@@ -54,4 +54,14 @@ class ProjectScheduleTests {
         assertThat(ProjectSchedule.preparationStart(LocalDate.of(2026, 3, 5), 21))
                 .isEqualTo(LocalDate.of(2026, 2, 12));
     }
+
+    @Test
+    void leapDayIsIncludedInCountdownAndPreparationPeriod() {
+        assertThat(ProjectSchedule.dDay(LocalDate.of(2028, 2, 28), LocalDate.of(2028, 3, 1)))
+                .isEqualTo(2);
+        assertThat(ProjectSchedule.preparationStart(LocalDate.of(2028, 3, 1), 1))
+                .isEqualTo(LocalDate.of(2028, 2, 29));
+        assertThat(ProjectSchedule.preparationStart(LocalDate.of(2027, 3, 1), 1))
+                .isEqualTo(LocalDate.of(2027, 2, 28));
+    }
 }
