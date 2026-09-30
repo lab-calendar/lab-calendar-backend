@@ -45,11 +45,46 @@ class LedgerRowParserTests {
         assertThat(result.errorRowCount()).isEqualTo(2);
     }
 
+    /**
+     * 양식에 남은 빈 칸은 달을 막지 않지만, 날짜를 물려주지도 않는다 (KAN-79).
+     *
+     * <p>막히는 이유가 그 빈 행이 아니라 <em>날짜 없이 올라온 사용 행</em> 이어야 한다.
+     * 빈 행을 눈감아 주면서 그 행의 못 쓰는 날짜까지 물려주면, 지출이 엉뚱한 날에
+     * 조용히 얹힌다 — 막으려던 것이 그쪽이다.
+     */
     @Test
     void invalidTemplateDateAlsoResetsContext() {
         var result = parse(row(2, "1", "", "", ""), row(3, "31", "", "", "점심"),
                 row(4, "", "과제A", "홍길동", "점심"));
-        assertThat(result.problems()).extracting(Problem::code).containsExactly(Code.INVALID_DATE, Code.DATE_MISSING);
+        assertThat(result.problems()).extracting(Problem::code).containsExactly(Code.DATE_MISSING);
+        assertThat(result.problems()).extracting(Problem::row).containsExactly(4);
+        assertThat(result.status()).isEqualTo(Status.BLOCKED);
+    }
+
+    /**
+     * 실제 장부에서 네 달을 통째로 막았던 모양 (KAN-79).
+     *
+     * <p>월별 시트는 1~31일 칸을 미리 만들어 두므로, 28일까지인 2월에는 날짜 칸에 29·30·31
+     * 만 적힌 행이 남는다. 30일까지인 달에는 31 이 남는다. 그 행들 때문에 사용 기록
+     * 112건이 달력에 오르지 못했다.
+     */
+    @ParameterizedTest
+    @CsvSource({"2025, 2, 29", "2025, 2, 30", "2025, 2, 31", "2022, 11, 31", "2022, 6, 31"})
+    void leftoverTemplateSlotsDoNotBlockTheMonth(int year, int month, String leftoverDay) {
+        var result = parser.parse(sheet(year, month, row(2, "1", "과제A", "홍길동", "점심"),
+                row(3, leftoverDay, "", "", "")));
+
+        assertThat(result.status()).isEqualTo(Status.READY);
+        assertThat(result.problems()).isEmpty();
+        assertThat(result.applicableEntries()).extracting(Entry::row).containsExactly(2);
+    }
+
+    /** 빈 칸을 눈감아 주는 것과 사용 기록의 날짜가 틀린 것은 다른 일이다 (KAN-79). */
+    @Test
+    void aSpendingRowWithAnUnusableDateStillBlocks() {
+        var result = parser.parse(sheet(2025, 2, row(2, "29", "과제A", "홍길동", "점심")));
+
+        assertThat(result.problems()).extracting(Problem::code).containsExactly(Code.INVALID_DATE);
         assertThat(result.status()).isEqualTo(Status.BLOCKED);
     }
 
