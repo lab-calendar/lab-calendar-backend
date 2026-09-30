@@ -55,6 +55,11 @@ services:
       SHEETS_SYNC_ENABLED: ${SHEETS_SYNC_ENABLED:-false}
       SHEETS_SPREADSHEET_ID: ${SHEETS_SPREADSHEET_ID:-}
       SHEETS_CREDENTIALS_JSON: ${SHEETS_CREDENTIALS_JSON:-}
+      # 주기와 안전장치 기준. 비워 두면 앱의 기본값(매시 정각, 20건·50%)을 쓴다.
+      # README 가 이 값들을 바꿀 수 있다고 적어 두었으므로 여기서도 넘겨준다.
+      SHEETS_SYNC_CRON: ${SHEETS_SYNC_CRON:-0 0 * * * *}
+      LAB_CALENDAR_SHEETS_MAX_REMOVALS_PER_MONTH: ${SHEETS_MAX_REMOVALS_PER_MONTH:-20}
+      LAB_CALENDAR_SHEETS_MAX_REMOVAL_RATIO: ${SHEETS_MAX_REMOVAL_RATIO:-0.5}
     expose:
       - "8080"
     # DB 연결까지 확인한다. 프로세스가 살아 있어도 DB 가 끊기면 unhealthy 다.

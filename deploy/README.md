@@ -188,8 +188,8 @@ docker compose logs --tail=50 backend | grep -i 시트
 - 권한 상실·시트 삭제·속도 제한은 각각 다른 코드로 이력에 남는다
 - 앞 회차나 엑셀 업로드가 돌고 있으면 이번 회차는 건너뛴다
 
-기준을 바꾸려면 `lab-calendar.sheets.max-removals-per-month` 와 `max-removal-ratio` 를
-환경에서 덮어쓴다.
+기준과 주기는 `.env` 에서 바꾼다 — `SHEETS_MAX_REMOVALS_PER_MONTH`,
+`SHEETS_MAX_REMOVAL_RATIO`, `SHEETS_SYNC_CRON`. 비워 두면 매시 정각 · 20건 · 50% 다.
 
 ### 공유가 끊겼을 때
 
