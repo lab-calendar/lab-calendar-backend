@@ -128,11 +128,11 @@ card_expense에는 UNIQUE(source_document_id, source_record_id)를 둔다. 자�
 | 컬럼 | 타입 | 제약 및 의미 |
 | --- | --- | --- |
 | id | BIGINT | PK |
-| code | VARCHAR(32) | UNIQUE, project / lab / card, 불변 |
+| code | VARCHAR(32) | UNIQUE, project / lab / card / personal, 불변 |
 | name | VARCHAR(100) | 표시 이름 |
 | sort_order | INT | 0 이상 |
 
-초기값: 과제/연구 관리(project), 랩실 주기적 일정(lab), 카드/경비 사용(card). API는 DB code를 `key`로, 일정에서는 `categoryKey`로 반환한다. 프론트의 접근성 검증된 색상 토큰을 사용하며 서버에서 색상을 덮어쓰지 않는다. KAN-38의 서버 색상 반환 요구는 이 리뷰안으로 조정이 필요하다. 권한은 표시명이나 색상 대신 code로 판단한다. 카테고리 관리 API는 KAN-38 범위에서 제외한다.
+초기값: 과제/연구 관리(project), 랩실 주기적 일정(lab), 카드/경비 사용(card), 개인 일정(personal — KAN-84 에서 추가). API는 DB code를 `key`로, 일정에서는 `categoryKey`로 반환한다. 프론트의 접근성 검증된 색상 토큰을 사용하며 서버에서 색상을 덮어쓰지 않는다. KAN-38의 서버 색상 반환 요구는 이 리뷰안으로 조정이 필요하다. 권한은 표시명이나 색상 대신 code로 판단한다. 카테고리 관리 API는 KAN-38 범위에서 제외한다.
 
 ### member
 
@@ -344,7 +344,7 @@ KAN-27의 완료 조건은 문서 공유와 팀 리뷰 후 확정이다. 현재�
 
 [2026-09-07 hks0827 리뷰](https://github.com/lab-calendar/lab-calendar-backend/pull/5#pullrequestreview-5132329155)의 7건을 2026-09-08 반영했다.
 
-1. category.code: project / lab / card, API key/categoryKey로 전달.
+1. category.code: project / lab / card / personal, API key/categoryKey로 전달.
 2. event.source: MANUAL / AUTO_GENERATED / GOOGLE_SYNC.
 3. 저장·응답·조회 날짜 양 끝 포함, FullCalendar 경계만 변환.
 4. 리드타임 API leadTimeDays(일), 프론트 전환은 후속 연동 필요.

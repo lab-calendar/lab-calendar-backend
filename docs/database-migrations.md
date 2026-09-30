@@ -6,7 +6,7 @@ KAN-28은 KAN-27의 병합된 저장 모델을 Flyway로 생성한다. 초기 �
 
 1. Spring Boot의 Flyway starter가 DB에 연결한다. core는 starter가 포함하며 MySQL 지원은 flyway-mysql을 사용한다.
 2. 빈 스키마에 이력 테이블과 8개 도메인 테이블, 인덱스, FK/UNIQUE/CHECK를 생성한다.
-3. project/lab/card 카테고리를 초기화한다. 고정 숫자 ID를 API 계약으로 사용하지 않는다.
+3. project/lab/card/personal 카테고리를 초기화한다. 고정 숫자 ID를 API 계약으로 사용하지 않는다.
 4. Hibernate가 8개 엔티티의 컬럼 매핑을 `ddl-auto: validate`로 검증한다.
 5. 재기동에서는 적용 이력과 체크섬을 검증하고 이미 적용된 버전을 재실행하지 않는다.
 
