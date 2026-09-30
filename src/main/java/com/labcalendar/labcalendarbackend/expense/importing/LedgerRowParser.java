@@ -69,15 +69,28 @@ public class LedgerRowParser {
                 currentDate = date(sheet.month(), day.text());
                 dateInvalid = currentDate == null;
             }
+            String card = normalize(cell(row, 1).text());
+            String rawNames = cell(row, 2).text();
+            /*
+             * Template rows change the date context but are not spending (KAN-79).
+             *
+             * The sheet lays out slots for 1-31 every month, so February keeps rows that say only
+             * "29", "30", "31". Faulting those held four otherwise clean months — and 112 real
+             * entries — out of the calendar, and the only way for the lab to avoid it would have
+             * been to delete the leftover slots by hand every month.
+             *
+             * Nothing is inherited from such a row: an unusable day leaves the context empty
+             * above, so the next row that does carry spending is caught as DATE_MISSING rather
+             * than quietly filed under a wrong day. A row that carries spending and an unusable
+             * date still blocks the month, unchanged.
+             */
+            if (card.isEmpty() && rawNames.isBlank()) continue;
+
             if (row.cells().stream().limit(4).anyMatch(RawCell::error)) {
                 problems.add(problem(sheet, row, Level.ERROR, Code.CELL_ERROR));
                 continue;
             }
             if (dateInvalid) problems.add(problem(sheet, row, Level.ERROR, Code.INVALID_DATE));
-            String card = normalize(cell(row, 1).text());
-            String rawNames = cell(row, 2).text();
-            // Template rows can change date context but do not create an expense.
-            if (card.isEmpty() && rawNames.isBlank()) continue;
             boolean invalid = dateInvalid;
             if (currentDate == null && !dateInvalid) {
                 problems.add(problem(sheet, row, Level.ERROR, Code.DATE_MISSING));
