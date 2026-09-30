@@ -21,14 +21,26 @@ class SchemaMigrationTests {
 
     @Test
     void startupMigratesAndRestartDoesNotRepeatSeedData() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.003");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.004");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForList("SELECT code FROM category ORDER BY sort_order", String.class))
-                .containsExactly("project", "lab", "card");
+                .containsExactly("project", "lab", "card", "personal");
         for (String table : new String[]{"member", "research_project", "card_expense", "event",
                 "event_participant", "sync_log", "sync_log_error"}) {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class)).isZero();
         }
+    }
+
+    /**
+     * KAN-84 dropped and re-added {@code ck_category_code} to make room for {@code personal}.
+     * A constraint that silently failed to come back would let any string into the table, so
+     * assert the new list is enforced rather than trusting the DDL ran.
+     */
+    @Test
+    void categoryCodeListIsStillEnforcedAfterTheFourthCodeWasAdded() {
+        rollback(() -> assertCheckViolation(() -> jdbc.update(
+                "INSERT INTO category (code,name,sort_order,created_at,updated_at)"
+                        + " VALUES ('made-up','없는 코드',4,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")));
     }
 
     @Test

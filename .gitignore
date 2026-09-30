@@ -43,3 +43,7 @@ deploy/.env
 # Ledger originals contain personal information; use synthetic test workbooks.
 *.xlsx
 *.xls
+
+# 구글 서비스 계정 키. 저장소에 두지 않는다 — 서버 환경이나 저장소 밖 경로로만 주입한다.
+secrets/
+*service-account*.json
