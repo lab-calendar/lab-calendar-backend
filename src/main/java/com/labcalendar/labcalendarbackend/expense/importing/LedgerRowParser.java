@@ -20,7 +20,16 @@ public class LedgerRowParser {
 
     public enum UsageType { LUNCH, DINNER, OVERTIME, NONE, OTHER }
     public enum Level { WARNING, ERROR }
-    public enum Code { DATE_MISSING, INVALID_DATE, CARD_MISSING, CARD_TOO_LONG, PARTICIPANTS_EMPTY, CELL_ERROR }
+    /**
+     * {@code REMOVAL_LIMIT} is not a row fault: the safety brake attaches it to a whole month when
+     * an unattended sync would delete more of it than the settings allow (KAN-89). It rides on the
+     * same enum so that a braked month blocks, logs and reports through the paths that already
+     * exist for bad rows.
+     */
+    public enum Code {
+        DATE_MISSING, INVALID_DATE, CARD_MISSING, CARD_TOO_LONG, PARTICIPANTS_EMPTY, CELL_ERROR,
+        REMOVAL_LIMIT
+    }
     public enum Status { READY, BLOCKED }
     public record Problem(String sheet, int row, Level level, Code code) {}
     public record Entry(int row, LocalDate usedOn, String cardName, String purpose,

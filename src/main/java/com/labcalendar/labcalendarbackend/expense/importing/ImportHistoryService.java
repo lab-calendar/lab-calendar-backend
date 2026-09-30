@@ -27,19 +27,31 @@ public class ImportHistoryService {
             LocalDateTime finishedAt, Long durationMs, int processed, int added, int updated,
             int removed, int skippedRows, String errorCode, long problemCount, List<Problem> problems) {}
 
+    /** Stored reasons are our own code names; anything else is not passed through to the screen. */
+    private static String reason(String stored) {
+        if (stored == null || stored.isBlank()) return "IMPORT_FAILED";
+        return stored.matches("[A-Z0-9_]{1,64}") ? stored : "IMPORT_FAILED";
+    }
+
     @Transactional(readOnly = true)
     public List<History> list(int limit) {
         if (!session.seesCardData()) throw new BusinessException(ErrorCode.FORBIDDEN);
         if (limit < 1 || limit > 100) throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        /*
+         * Scheduled runs belong here too (KAN-89). An unattended sync that lost its permission
+         * fails every hour into a table nobody is shown, which is the same as failing silently —
+         * this screen is where the lab already comes to ask what the last import did.
+         */
         var histories = jdbc.query("""
-                SELECT * FROM sync_log WHERE trigger_type='MANUAL'
-                ORDER BY started_at DESC, id DESC LIMIT ?
+                SELECT * FROM sync_log ORDER BY started_at DESC, id DESC LIMIT ?
                 """, (rs, row) -> new History(rs.getString("id"), rs.getString("source_document_id"),
                 rs.getString("status"), rs.getObject("started_at", LocalDateTime.class),
                 rs.getObject("finished_at", LocalDateTime.class), rs.getObject("duration_ms", Long.class),
                 rs.getInt("processed_count"), rs.getInt("created_count"), rs.getInt("updated_count"),
                 rs.getInt("deactivated_count"), rs.getInt("skipped_count"),
-                "FAILED".equals(rs.getString("status")) ? "IMPORT_FAILED" : null, 0, List.of()), limit);
+                // The stored reason names what went wrong; the old blanket code is the fallback.
+                "FAILED".equals(rs.getString("status"))
+                        ? reason(rs.getString("error_message")) : null, 0, List.of()), limit);
         if (histories.isEmpty()) return histories;
         // Two queries regardless of history count; cap each problem list to keep responses bounded.
         String placeholders = String.join(",", java.util.Collections.nCopies(histories.size(), "?"));
