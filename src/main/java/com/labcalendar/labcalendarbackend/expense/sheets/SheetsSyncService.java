@@ -32,6 +32,14 @@ public class SheetsSyncService {
     /** What the history row is labelled with, in place of an uploaded file name. */
     static final String LABEL = "구글 시트 자동 동기화";
 
+    /**
+     * How long a quiet stretch may go unrecorded (KAN-91).
+     *
+     * <p>Tied to nothing in particular — it is short enough that "the sync stopped" shows up the
+     * same day, and long enough that a five-minute timer does not fill the screen.
+     */
+    private static final java.time.Duration QUIET_HEARTBEAT = java.time.Duration.ofHours(1);
+
     private final SheetsLedgerReader reader;
     private final LedgerSheetSelector selector;
     private final LedgerRowParser parser;
@@ -117,8 +125,35 @@ public class SheetsSyncService {
             return failed(triggerType, braked.isEmpty() ? "NO_APPLICABLE_MONTHS" : "REMOVAL_LIMIT", now());
         }
 
-        LedgerSyncService.Result result = sync.apply(LABEL, guarded, triggerType);
+        LedgerSyncService.Result result = sync.apply(LABEL, guarded, triggerType,
+                applied -> worthLogging(applied, triggerType));
         return new Outcome(true, null, result.months(), braked);
+    }
+
+    /**
+     * Whether this run earned a line in the import history (KAN-91).
+     *
+     * <p>Running every few minutes means most runs have nothing to report. Writing all of them
+     * turns the history — where the lab goes to see what the last import did — into a wall of
+     * "nothing changed" with the real events buried in it.
+     *
+     * <p>So: anything that changed data or was held back gets a line, and a quiet stretch still
+     * leaves one line an hour. That last part matters — a history that goes completely silent
+     * cannot be told apart from a sync that stopped running.
+     *
+     * <p>A person who pressed the button always gets a line. They are waiting for the answer.
+     */
+    private boolean worthLogging(LedgerSyncService.Result result, String triggerType) {
+        if (!LedgerSyncService.SCHEDULED.equals(triggerType)) return true;
+        if (result.added() > 0 || result.removed() > 0 || result.partial()) return true;
+        return heartbeatDue();
+    }
+
+    private boolean heartbeatDue() {
+        LocalDateTime last = jdbc.queryForObject(
+                "SELECT MAX(started_at) FROM sync_log WHERE trigger_type = ?",
+                LocalDateTime.class, LedgerSyncService.SCHEDULED);
+        return last == null || last.isBefore(now().minus(QUIET_HEARTBEAT));
     }
 
     /**

@@ -2,6 +2,7 @@ package com.labcalendar.labcalendarbackend.expense.sheets;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -210,5 +211,83 @@ class SheetsSyncServiceTests {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM card_expense WHERE source_document_id='ledger:2026-07' AND active=TRUE",
                 Long.class)).isEqualTo(1);
+    }
+private long logRows() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM sync_log", Long.class);
+    }
+
+    /**
+     * 조용한 회차는 이력에 남기지 않는다 (KAN-91).
+     *
+     * <p>5분마다 도는 타이머가 회차마다 한 줄을 적으면, 이력 화면은 "변화 없음" 으로 덮여
+     * 정작 찾으려던 업로드와 실패가 묻힌다. 다만 완전히 조용해지면 "동기화가 멈춘 것" 과
+     * 구별할 수 없으므로, 한 시간에 한 줄은 남긴다.
+     */
+    @Test
+    void aQuietRunLeavesNoLineButTheFirstOneDoes() {
+        var client = new FakeSheetsClient().month(SEPTEMBER, lunches(3));
+
+        service(client).run(LedgerSyncService.SCHEDULED);
+        assertThat(logRows()).isEqualTo(1); // 첫 회차는 바뀐 것이 있으니 남는다
+
+        service(client).run(LedgerSyncService.SCHEDULED);
+        service(client).run(LedgerSyncService.SCHEDULED);
+
+        // 바뀐 것이 없는 두 회차는 줄을 남기지 않는다
+        assertThat(logRows()).isEqualTo(1);
+    }
+
+    @Test
+    void aChangedRunAlwaysLeavesALine() {
+        var client = new FakeSheetsClient().month(SEPTEMBER, lunches(3));
+        service(client).run(LedgerSyncService.SCHEDULED);
+
+        service(new FakeSheetsClient().month(SEPTEMBER, lunches(4)))
+                .run(LedgerSyncService.SCHEDULED);
+
+        assertThat(logRows()).isEqualTo(2);
+        assertThat(lastLog("status")).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    void anHourOfSilenceStillLeavesOneLine() {
+        var client = new FakeSheetsClient().month(SEPTEMBER, lunches(3));
+        service(client).run(LedgerSyncService.SCHEDULED);
+        /*
+         * 마지막 기록을 확실히 한 시간 밖으로 밀어 둔다. 기록의 시각은 앱의 진짜 시계로
+         * 찍히고 판단은 이 테스트의 고정 시계로 하므로, 상대 계산 대신 못 박은 값을 쓴다.
+         */
+        jdbc.update("UPDATE sync_log SET started_at = ?", LocalDateTime.of(2026, 9, 29, 0, 0));
+
+        service(client).run(LedgerSyncService.SCHEDULED);
+
+        assertThat(logRows()).isEqualTo(2);
+        // 남긴 줄은 '아무 일 없었다' 는 뜻이다
+        assertThat(jdbc.queryForObject("SELECT created_count + deactivated_count FROM sync_log ORDER BY id DESC LIMIT 1",
+                Long.class)).isZero();
+    }
+
+    @Test
+    void aPersonPressingTheButtonAlwaysGetsALine() {
+        var client = new FakeSheetsClient().month(SEPTEMBER, lunches(3));
+        service(client).run(LedgerSyncService.SCHEDULED);
+
+        // 바뀐 것이 없어도, 누른 사람은 결과를 기다리고 있다
+        service(client).run(LedgerSyncService.MANUAL);
+
+        assertThat(logRows()).isEqualTo(2);
+        assertThat(lastLog("trigger_type")).isEqualTo("MANUAL");
+    }
+
+    @Test
+    void aFailedRunIsAlwaysRecordedNoMatterHowQuietTheHourWas() {
+        service(new FakeSheetsClient().month(SEPTEMBER, lunches(3))).run(LedgerSyncService.SCHEDULED);
+
+        service(new FakeSheetsClient()
+                .failing(new SheetsApiException(SheetsApiException.Code.PERMISSION_DENIED)))
+                .run(LedgerSyncService.SCHEDULED);
+
+        assertThat(logRows()).isEqualTo(2);
+        assertThat(lastLog("status")).isEqualTo("FAILED");
     }
 }
