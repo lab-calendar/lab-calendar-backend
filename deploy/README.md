@@ -146,6 +146,57 @@ curl -s -X POST https://lab-calendar.cloud/api/auth/login \
 - 평문 비밀번호와 해시는 저장소에 커밋하지 않는다. `.env` 는 gitignore 대상이다.
 - 비밀번호를 공유할 때는 이 문서가 아니라 별도 경로(비밀번호 관리자 등)를 쓴다.
 
+## 구글 시트 자동 동기화 (KAN-88, KAN-89)
+
+회의록 시트를 매시 읽어 카드/경비 일정에 반영한다. **기본은 꺼짐**이고, 아래 셋을
+`.env` 에 채운 뒤 백엔드를 다시 올려야 돈다.
+
+```
+SHEETS_SYNC_ENABLED=true
+SHEETS_SPREADSHEET_ID=<문서 URL 의 /d/ 와 /edit 사이 문자열>
+SHEETS_CREDENTIALS_JSON=<서비스 계정 키 JSON 을 base64 한 줄로>
+```
+
+키를 base64 로 넣는 이유는 원본 JSON 이 줄이 여러 개이고 개인키 안에 `$` 와 따옴표가
+섞여 있어서다. 그대로 넣으면 `.env` 를 지나는 동안 잘린다.
+
+```bash
+base64 -w0 lab-calendar-sheets.json   # 이 한 줄을 값으로 붙여 넣는다
+```
+
+셋 중 하나라도 비면 **앱이 기동을 거부한다** — 켜 놓고 반쯤 설정된 채로 매시 실패하는
+것보다 낫다.
+
+### 켠 뒤 확인
+
+```bash
+cd ~/lab-calendar/deploy
+docker compose up -d backend
+docker compose logs --tail=50 backend | grep -i 시트
+```
+
+`시트 동기화 완료 — 추가 N건, 삭제 N건` 이 보이면 정상이다. 실패는 이유와 함께 남고,
+같은 내용이 화면의 **카드 내역 → 가져오기 이력**에도 보인다.
+
+### 안전장치
+
+아무도 보지 않는 사이에 한 달치가 지워지는 일을 막는다.
+
+- 한 달에서 **20건을 넘게, 그리고 그 달의 50%를 넘게** 지울 것 같으면 그 달을 건너뛰고
+  이유를 남긴다 (`REMOVAL_LIMIT`). 둘 다 넘어야 걸린다
+- 읽을 월 탭이 하나도 없으면 "전부 삭제"가 아니라 아무것도 하지 않는다
+- 권한 상실·시트 삭제·속도 제한은 각각 다른 코드로 이력에 남는다
+- 앞 회차나 엑셀 업로드가 돌고 있으면 이번 회차는 건너뛴다
+
+기준을 바꾸려면 `lab-calendar.sheets.max-removals-per-month` 와 `max-removal-ratio` 를
+환경에서 덮어쓴다.
+
+### 공유가 끊겼을 때
+
+이력에 `SHEETS_PERMISSION_DENIED` 가 보이면 시트 공유가 풀렸거나 Sheets API 사용
+설정이 꺼진 것이다. 시트 소유자에게 서비스 계정 주소를 **뷰어**로 다시 넣어 달라고
+요청한다. 주소는 키 JSON 의 `client_email` 값이다.
+
 ## 상태 확인과 로그 (KAN-68)
 
 ### 컨테이너가 살아 있는지
