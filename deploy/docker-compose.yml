@@ -50,6 +50,11 @@ services:
       AUTH_EDITOR_PASSWORD_HASH: ${AUTH_EDITOR_PASSWORD_HASH}
       AUTH_VIEWER_PASSWORD_HASH: ${AUTH_VIEWER_PASSWORD_HASH}
       AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET}
+      # 구글 시트 자동 동기화 (KAN-88). 비워 두면 꺼진 채로 돈다 — 켜려면 셋 다 필요하고,
+      # 하나라도 비면 앱이 기동을 거부한다. 키는 base64 로 넣는다(README 참고).
+      SHEETS_SYNC_ENABLED: ${SHEETS_SYNC_ENABLED:-false}
+      SHEETS_SPREADSHEET_ID: ${SHEETS_SPREADSHEET_ID:-}
+      SHEETS_CREDENTIALS_JSON: ${SHEETS_CREDENTIALS_JSON:-}
     expose:
       - "8080"
     # DB 연결까지 확인한다. 프로세스가 살아 있어도 DB 가 끊기면 unhealthy 다.
