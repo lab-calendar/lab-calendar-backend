@@ -30,6 +30,26 @@ public class LedgerSheetSelector {
         }
     }
 
+    /**
+     * The month a tab name names, or empty when it does not name one (KAN-88).
+     *
+     * <p>Lenient on purpose, and separate from {@link #select}: this answers "is this tab worth
+     * fetching at all", which is asked before anything has been read. A name that matches the
+     * shape but carries an impossible number ({@code 2026년 13월}) is "not a month" here, and is
+     * still rejected loudly by {@code select} once its rows are in hand.
+     */
+    public static java.util.Optional<YearMonth> lenientMonthOf(String sheetName) {
+        if (sheetName == null) return java.util.Optional.empty();
+        var matcher = MONTH.matcher(sheetName);
+        if (!matcher.matches()) return java.util.Optional.empty();
+        try {
+            return java.util.Optional.of(YearMonth.of(
+                    Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2))));
+        } catch (DateTimeException | NumberFormatException notAMonth) {
+            return java.util.Optional.empty();
+        }
+    }
+
     public Selection select(List<RawSheet> sheets) {
         var months = new ArrayList<MonthSheet>();
         var skipped = new ArrayList<SkippedSheet>();
