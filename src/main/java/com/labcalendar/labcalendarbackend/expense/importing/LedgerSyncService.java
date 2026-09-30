@@ -105,7 +105,7 @@ public class LedgerSyncService {
     }
 
     public Result apply(String fileName, List<ParsedMonth> months) {
-        return applyChecked(fileName, months, MANUAL, () -> {});
+        return applyChecked(fileName, months, MANUAL, () -> {}, result -> true);
     }
 
     /**
@@ -116,7 +116,22 @@ public class LedgerSyncService {
      * today has to land on the same stored rows, not a second copy of them.
      */
     public Result apply(String label, List<ParsedMonth> months, String triggerType) {
-        return applyChecked(label, months, triggerType, () -> {});
+        return apply(label, months, triggerType, result -> true);
+    }
+
+    /**
+     * Applies, and decides per run whether the history is worth a row (KAN-91).
+     *
+     * <p>A timer that runs every few minutes writes one line per run, and almost all of them say
+     * "nothing changed". The history screen is where the lab looks to find out what the last
+     * import did; drowning it in no-ops answers that question worse, not better. So the caller
+     * that knows how often it runs decides what deserves a line.
+     *
+     * <p>Failures are not subject to this — they are logged whatever the predicate says.
+     */
+    public Result apply(String label, List<ParsedMonth> months, String triggerType,
+            java.util.function.Predicate<Result> worthLogging) {
+        return applyChecked(label, months, triggerType, () -> {}, worthLogging);
     }
 
     /**
@@ -131,10 +146,11 @@ public class LedgerSyncService {
     }
 
     Result applyVerified(String fileName, List<ParsedMonth> months, java.util.function.Consumer<String> verify) {
-        return applyChecked(fileName, months, MANUAL, () -> verify.accept(fingerprint(months)));
+        return applyChecked(fileName, months, MANUAL, () -> verify.accept(fingerprint(months)), result -> true);
     }
 
-    private Result applyChecked(String fileName, List<ParsedMonth> months, String triggerType, Runnable verify) {
+    private Result applyChecked(String fileName, List<ParsedMonth> months, String triggerType,
+            Runnable verify, java.util.function.Predicate<Result> worthLogging) {
         validate(months);
         if (months.stream().noneMatch(m -> m.status() == Status.READY)) {
             throw new LedgerSyncException(LedgerSyncException.Code.NO_APPLICABLE_MONTHS);
@@ -152,8 +168,10 @@ public class LedgerSyncService {
                 return transaction.execute(status -> {
                     verify.run();
                     Result result = reconcile(months, true);
-                    log(label, started, result.partial() ? "PARTIAL" : "SUCCESS", result, months,
-                            triggerType, null);
+                    if (worthLogging.test(result)) {
+                        log(label, started, result.partial() ? "PARTIAL" : "SUCCESS", result, months,
+                                triggerType, null);
+                    }
                     return result;
                 }); // Commit/rollback completes before the lock is released.
             } catch (ImportApiException rejectedPreview) {
