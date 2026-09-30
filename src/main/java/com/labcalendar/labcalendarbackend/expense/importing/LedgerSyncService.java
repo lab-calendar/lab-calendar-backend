@@ -24,6 +24,10 @@ import static com.labcalendar.labcalendarbackend.expense.importing.LedgerRowPars
 /** Internal single-JVM reconciliation. Upload authorization and signed previews belong to KAN-59. */
 @Service
 public class LedgerSyncService {
+    /** The two values {@code ck_sync_trigger} allows. */
+    public static final String MANUAL = "MANUAL";
+    public static final String SCHEDULED = "SCHEDULED";
+
     private static final ReentrantLock LOCK = new ReentrantLock(true);
     private static final tools.jackson.databind.json.JsonMapper MAPPER = new tools.jackson.databind.json.JsonMapper();
     private final JdbcTemplate jdbc;
@@ -41,8 +45,17 @@ public class LedgerSyncService {
     }
     private record Stored(long id, String key, boolean active) {}
 
-    // Package-only gateway for KAN-59: verification and apply share the reconciliation lock.
-    <T> T withImportLock(java.util.function.Supplier<T> work) { return locked(work); }
+    /**
+     * Runs work with the reconciliation lock held (KAN-59, widened for KAN-88).
+     *
+     * <p>Verification and apply have to see the same rows, and so do the scheduled sync's measure
+     * and apply steps. The lock is reentrant, so the {@code preview} and {@code apply} calls made
+     * inside take it again without deadlocking.
+     */
+    public <T> T withImportLock(java.util.function.Supplier<T> work) { return locked(work); }
+
+    /** Whether another import or sync holds the lock right now. */
+    public boolean busy() { return LOCK.isLocked(); }
 
     record PreviewState(Result result, String fingerprint) {}
     PreviewState previewState(List<ParsedMonth> months) {
@@ -92,14 +105,36 @@ public class LedgerSyncService {
     }
 
     public Result apply(String fileName, List<ParsedMonth> months) {
-        return applyChecked(fileName, months, () -> {});
+        return applyChecked(fileName, months, MANUAL, () -> {});
+    }
+
+    /**
+     * Applies on behalf of something other than an upload (KAN-88).
+     *
+     * <p>Only the label and the trigger recorded in the history differ. The reconciliation itself
+     * must not know where the rows came from: a month uploaded yesterday and read from the sheet
+     * today has to land on the same stored rows, not a second copy of them.
+     */
+    public Result apply(String label, List<ParsedMonth> months, String triggerType) {
+        return applyChecked(label, months, triggerType, () -> {});
+    }
+
+    /**
+     * Records a run that never got as far as reconciling (KAN-89).
+     *
+     * <p>An unattended sync that fails silently looks exactly like one that had nothing to do. The
+     * reason goes where the lab already looks for import history.
+     */
+    public void logFailure(String label, String triggerType, String reason, LocalDateTime started) {
+        transaction.executeWithoutResult(status ->
+                log(label, started, "FAILED", null, List.of(), triggerType, reason));
     }
 
     Result applyVerified(String fileName, List<ParsedMonth> months, java.util.function.Consumer<String> verify) {
-        return applyChecked(fileName, months, () -> verify.accept(fingerprint(months)));
+        return applyChecked(fileName, months, MANUAL, () -> verify.accept(fingerprint(months)));
     }
 
-    private Result applyChecked(String fileName, List<ParsedMonth> months, Runnable verify) {
+    private Result applyChecked(String fileName, List<ParsedMonth> months, String triggerType, Runnable verify) {
         validate(months);
         if (months.stream().noneMatch(m -> m.status() == Status.READY)) {
             throw new LedgerSyncException(LedgerSyncException.Code.NO_APPLICABLE_MONTHS);
@@ -117,7 +152,8 @@ public class LedgerSyncService {
                 return transaction.execute(status -> {
                     verify.run();
                     Result result = reconcile(months, true);
-                    log(label, started, result.partial() ? "PARTIAL" : "SUCCESS", result, months);
+                    log(label, started, result.partial() ? "PARTIAL" : "SUCCESS", result, months,
+                            triggerType, null);
                     return result;
                 }); // Commit/rollback completes before the lock is released.
             } catch (ImportApiException rejectedPreview) {
@@ -125,7 +161,8 @@ public class LedgerSyncService {
                 throw rejectedPreview;
             } catch (RuntimeException failure) {
                 try {
-                    transaction.executeWithoutResult(status -> log(label, started, "FAILED", null, months));
+                    transaction.executeWithoutResult(status ->
+                            log(label, started, "FAILED", null, months, triggerType, null));
                 } catch (RuntimeException logFailure) {
                     throw new LedgerSyncException(LedgerSyncException.Code.IMPORT_FAILED_LOG_UNAVAILABLE);
                 }
@@ -229,18 +266,22 @@ public class LedgerSyncService {
         return new Result(results);
     }
 
-    private void log(String name, LocalDateTime started, String status, Result result, List<ParsedMonth> months) {
+    private void log(String name, LocalDateTime started, String status, Result result,
+            List<ParsedMonth> months, String triggerType, String reason) {
         LocalDateTime finished = now();
         int added = result == null ? 0 : result.added();
         int same = result == null ? 0 : result.unchanged();
         int removed = result == null ? 0 : result.removed();
         long skipped = months.stream().mapToLong(ParsedMonth::errorRowCount).sum();
+        String trigger = SCHEDULED.equals(triggerType) ? SCHEDULED : MANUAL;
         long id = insert("""
                 INSERT INTO sync_log (source_document_id, trigger_type, status, started_at, finished_at,
                 duration_ms, processed_count, created_count, updated_count, skipped_count, deactivated_count, error_message)
-                VALUES (?, 'MANUAL', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
-                """, name, status, started, finished, Math.max(0, java.time.Duration.between(started, finished).toMillis()),
-                added + same, added, skipped, removed, result == null ? "IMPORT_FAILED" : null);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                """, name, trigger, status, started, finished,
+                Math.max(0, java.time.Duration.between(started, finished).toMillis()),
+                added + same, added, skipped, removed,
+                result != null ? null : reason != null ? reason : "IMPORT_FAILED");
         for (var month : months) for (var problem : month.problems()) {
             jdbc.update("""
                     INSERT INTO sync_log_error (sync_log_id, source_locator, error_code, message)
