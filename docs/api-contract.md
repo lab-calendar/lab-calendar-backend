@@ -36,7 +36,7 @@ PR #5 리뷰에서 제기한 항목들이 KAN-27 설계 문서에 반영되어 *
 
 | 항목 | 확정값 | 비고 |
 | --- | --- | --- |
-| 카테고리 키 | `project` / `lab` / `card` | DB `code` 를 API 에서 `key`, 일정에서는 `categoryKey` 로 반환 |
+| 카테고리 키 | `project` / `lab` / `card` / `personal` | DB `code` 를 API 에서 `key`, 일정에서는 `categoryKey` 로 반환 |
 | 일정 출처 | `MANUAL` / `AUTO_GENERATED` / `GOOGLE_SYNC` | |
 | 날짜 범위 | **DB · API · 조회 파라미터 모두 양끝 포함** | 서버는 `endDate` 를 더하거나 빼지 않습니다 |
 | 리드타임 | **`leadTimeDays`(일)**, 0~182 정수, 기본 21 | 7의 배수가 아닌 값도 허용 — **프론트 전환 필요, 3절** |
@@ -180,7 +180,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `id` | number | |
-| `key` | string | `project` \| `lab` \| `card` |
+| `key` | string | `project` \| `lab` \| `card` \| `personal` |
 | `name` | string | 표시 이름. 프론트는 이 값을 그대로 씁니다 |
 
 **`key` 는 프론트의 하드코딩 계약입니다.** `tokens.css` 의 `[data-category]` 셀렉터, URL 필터 파라미터(`?categories=project,lab`)에 그대로 들어갑니다.
@@ -216,7 +216,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | `detail` | string \| null | | 카테고리별로 의미가 다름 (6.2) |
 | `startDate` | `YYYY-MM-DD` | ✅ | |
 | `endDate` | `YYYY-MM-DD` | ✅ | **표시 마지막 날, 포함** |
-| `categoryKey` | string | ✅ | `project` \| `lab` \| `card` |
+| `categoryKey` | string | ✅ | `project` \| `lab` \| `card` \| `personal` |
 | `memo` | string \| null | | |
 | `participants` | string[] | ✅ | `position` 순 이름 배열. 빈 배열 허용 |
 | `source` | string | ✅ | `MANUAL` \| `AUTO_GENERATED` \| `GOOGLE_SYNC` |
