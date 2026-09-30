@@ -78,6 +78,23 @@ class SheetsSyncApiTests {
     }
 
     @Test
+    void takesTheKeyEitherAsJsonOrBase64() {
+        /*
+         * 원본 JSON 은 줄이 여러 개이고 개인키 안에 $ 와 따옴표가 섞여 있어 .env 를
+         * 지나면 잘린다. base64 한 줄이면 그대로 건너온다 — 둘 다 받는다.
+         */
+        var properties = new SheetsProperties();
+        String key = "{\"client_email\":\"a@b.iam.gserviceaccount.com\"}";
+
+        properties.setCredentialsJson(key);
+        assertThat(properties.getCredentialsJson()).isEqualTo(key);
+
+        properties.setCredentialsJson(java.util.Base64.getEncoder()
+                .encodeToString(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertThat(properties.getCredentialsJson()).isEqualTo(key);
+    }
+
+    @Test
     void refusesSettingsThatWouldTurnTheBrakesOff() {
         var properties = new SheetsProperties();
         properties.setEnabled(true);

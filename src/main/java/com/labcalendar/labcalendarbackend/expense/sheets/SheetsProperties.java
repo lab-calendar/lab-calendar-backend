@@ -24,7 +24,13 @@ public class SheetsProperties {
     /** The document id from its URL. */
     private String spreadsheetId;
 
-    /** Service account key, the entire JSON file as one value. */
+    /**
+     * Service account key: the whole JSON, or the same JSON base64 encoded.
+     *
+     * <p>Base64 is there because the raw key is hostile to a {@code .env} file — it spans lines and
+     * the private key body is full of characters Compose reads as variables. Encoding it makes it
+     * one flat token that survives being passed through the deployment by hand.
+     */
     private String credentialsJson;
 
     /** When the periodic run fires. Hourly on the hour by default. */
@@ -64,7 +70,20 @@ public class SheetsProperties {
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getSpreadsheetId() { return spreadsheetId; }
     public void setSpreadsheetId(String spreadsheetId) { this.spreadsheetId = spreadsheetId; }
-    public String getCredentialsJson() { return credentialsJson; }
+    /** The key as JSON, decoding it first if it arrived base64 encoded. */
+    public String getCredentialsJson() {
+        if (credentialsJson == null) return null;
+        String value = credentialsJson.strip();
+        if (value.isEmpty() || value.startsWith("{")) return value;
+        try {
+            return new String(java.util.Base64.getDecoder().decode(value),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException notBase64) {
+            // Leave it as it came; the key parser reports it as unreadable with its own code.
+            return value;
+        }
+    }
+
     public void setCredentialsJson(String credentialsJson) { this.credentialsJson = credentialsJson; }
     public String getCron() { return cron; }
     public void setCron(String cron) { this.cron = cron; }
