@@ -44,7 +44,7 @@ class LedgerSyncServiceTests {
                 .andExpect(jsonPath("$.data.detail").isEmpty())
                 .andExpect(jsonPath("$.data.participants[0]").value("홍길동"))
                 .andExpect(jsonPath("$.data.memo").value("홍길동(가상)"))
-                .andExpect(jsonPath("$.data.source").value("GOOGLE_SYNC"));
+                .andExpect(jsonPath("$.data.source").value("CARD_IMPORT"));
         mvc.perform(delete("/api/events/" + id).cookie(editor)).andExpect(status().isForbidden());
         mvc.perform(get("/api/events?from=2026-09-01&to=2026-09-30").cookie(viewer))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());

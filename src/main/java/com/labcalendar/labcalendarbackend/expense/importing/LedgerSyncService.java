@@ -259,7 +259,7 @@ public class LedgerSyncService {
                     }
                     long event = insert("""
                             INSERT INTO event (category_id, card_expense_id, title, memo, start_date, end_date,
-                            all_day, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, TRUE, 'GOOGLE_SYNC', ?, ?)
+                            all_day, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, TRUE, 'CARD_IMPORT', ?, ?)
                             """, category, expenseId, entry.cardName(), entry.memo(), entry.usedOn(), entry.usedOn(), time, time);
                     for (int position = 0; position < entry.participants().size(); position++) {
                         jdbc.update("""

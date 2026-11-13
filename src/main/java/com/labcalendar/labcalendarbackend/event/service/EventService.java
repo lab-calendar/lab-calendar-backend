@@ -270,7 +270,7 @@ public class EventService {
                         ? new Display(event.getTitle(), null)
                         : new Display(project.getName(), project.getSubmissionType());
             }
-            case GOOGLE_SYNC -> {
+            case CARD_IMPORT -> {
                 CardExpense expense = expenseById.get(event.getCardExpenseId());
                 yield expense == null
                         ? new Display(event.getTitle(), null)

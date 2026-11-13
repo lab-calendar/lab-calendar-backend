@@ -231,7 +231,7 @@ class AuthorizationApiTests {
         jdbc.update("""
                 INSERT INTO event (category_id, card_expense_id, title, start_date, end_date,
                         all_day, source, created_at, updated_at)
-                VALUES (?, ?, ?, '2026-09-11', '2026-09-11', TRUE, 'GOOGLE_SYNC',
+                VALUES (?, ?, ?, '2026-09-11', '2026-09-11', TRUE, 'CARD_IMPORT',
                         '2026-09-01 00:00:00', '2026-09-01 00:00:00')
                 """, categoryId, expenseId, cardName);
         return jdbc.queryForObject(

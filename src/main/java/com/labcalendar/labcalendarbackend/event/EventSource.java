@@ -7,13 +7,18 @@ import com.labcalendar.labcalendarbackend.common.exception.ErrorCode;
  * Where an event came from (KAN-27 schema, {@code event.source}).
  *
  * <p>Only {@link #MANUAL} events may be written through the API. The others are rebuilt by the
- * lead-time batch (KAN-49) and the Google sync (KAN-58), so an edit here would be silently
- * reverted on the next run. Clients change them at the source instead.
+ * lead-time batch (KAN-49) and by the card ledger import (KAN-58), so an edit here would be
+ * silently reverted on the next run. Clients change them at the source instead.
+ *
+ * <p>{@link #CARD_IMPORT} was called {@code GOOGLE_SYNC} until KAN-76. The old name came from
+ * reading the Google API directly; today the value is written by two paths — an uploaded
+ * spreadsheet and the sheet sync — and neither reads as "Google sync". What they share is that
+ * the card ledger was imported.
  */
 public enum EventSource {
     MANUAL,
     AUTO_GENERATED,
-    GOOGLE_SYNC;
+    CARD_IMPORT;
 
     public boolean isWritableByClient() {
         return this == MANUAL;
