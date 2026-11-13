@@ -172,7 +172,7 @@ KAN-47~49에 맞춰 한 행은 제출 단계와 마감 하나를 관리한다. �
 | start_date / end_date | DATE | 양 끝 포함, end_date >= start_date |
 | all_day | BOOLEAN | 기본 true |
 | start_time / end_time | TIME(0) | 종일이면 둘 다 NULL, 시간 지정이면 둘 다 필수 |
-| source | VARCHAR(20) | MANUAL / AUTO_GENERATED / GOOGLE_SYNC |
+| source | VARCHAR(20) | MANUAL / AUTO_GENERATED / CARD_IMPORT |
 
 종일 하루 일정은 시작일=종료일이다. 시간 일정은 종료 날짜+시간이 시작 날짜+시간보다 커야 하며 종료 시각은 제외한다. 제목은 과제명/업무명/카드 종류만 담고 표시용 접두사·제출 단계를 합치지 않는다. 현재 프론트는 종일 일정만 지원하므로 1차 API는 all_day=true, 시간 컬럼=NULL로 고정한다. 시간 입력은 거부하며 시간 지정 기능은 별도 프론트 연동 후 활성화한다.
 
@@ -180,9 +180,9 @@ KAN-47~49에 맞춰 한 행은 제출 단계와 마감 하나를 관리한다. �
 | --- | --- | --- | --- |
 | MANUAL | NULL | NULL | 세 종류 가능 |
 | AUTO_GENERATED | 필수 | NULL | project |
-| GOOGLE_SYNC | NULL | 필수 | card |
+| CARD_IMPORT | NULL | 필수 | card |
 
-두 원천 FK를 동시에 설정할 수 없다. FK/source 조합은 DB 제약 대상으로, 다른 테이블의 카테고리 code 적합성은 서비스 검증 대상으로 둔다. 클라이언트가 source/원천 FK를 임의 변경하게 하지 않는다. AUTO_GENERATED/GOOGLE_SYNC 일정은 직접 수정·삭제·기간 이동을 서버에서도 거부한다. 변경은 과제 관리 또는 구글 원본에서 수행한다.
+두 원천 FK를 동시에 설정할 수 없다. FK/source 조합은 DB 제약 대상으로, 다른 테이블의 카테고리 code 적합성은 서비스 검증 대상으로 둔다. 클라이언트가 source/원천 FK를 임의 변경하게 하지 않는다. AUTO_GENERATED/CARD_IMPORT 일정은 직접 수정·삭제·기간 이동을 서버에서도 거부한다. 변경은 과제 관리 또는 카드 내역 원본에서 수행한다.
 
 ### event_participant
 
@@ -260,7 +260,7 @@ DB 날짜, API startDate/endDate, 조회 from/to는 모두 양 끝 포함이다.
 
 NULL 원천 FK의 유니크는 여러 수동 일정을 허용해야 한다. 실제 DB와 H2에서 KAN-28 검증 항목으로 둔다. 날짜 복합 인덱스가 양쪽 범위 조건을 모두 해결한다고 가정하지 않고 KAN-40에서 실행 계획을 확인한다. 참석자/카테고리는 일괄 조회 전략으로 N+1을 방지한다.
 
-VIEWER에는 card 카테고리 및 GOOGLE_SYNC 원천 일정을 제외한다. 목록뿐 아니라 일정 단건/참석자/카테고리 조회에 같은 서비스 정책을 적용하고 카드/동기화 API를 차단한다. UI에서 숨기는 것만으로 처리하지 않는다.
+VIEWER에는 card 카테고리 및 CARD_IMPORT 원천 일정을 제외한다. 목록뿐 아니라 일정 단건/참석자/카테고리 조회에 같은 서비스 정책을 적용하고 카드/동기화 API를 차단한다. UI에서 숨기는 것만으로 처리하지 않는다.
 
 ## 5.1 일정 응답 조합과 남은 연동 사항
 
@@ -270,7 +270,7 @@ KAN-39 단건과 KAN-40 목록은 같은 DTO 조합 규칙을 사용한다. deta
 | --- | --- | --- |
 | AUTO_GENERATED / project | research_project.name | research_project.submission_type |
 | MANUAL / lab, 등록 담당자 연결 | event.title | member.name |
-| GOOGLE_SYNC / card | card_expense.card_name | card_expense.purpose |
+| CARD_IMPORT / card | card_expense.card_name | card_expense.purpose |
 | MANUAL / project 또는 card, 자유 입력 담당자 lab | event.title | event.manual_detail |
 
 수동 일정은 원천 FK가 없으므로 `event.manual_detail TEXT NULL`을 추가해 제출 단계/사용 목적/자유 입력 담당자 값을 보존한다. MANUAL에서만 사용하고 자동/구글 일정은 NULL이다. 현재 프론트는 owner_member_id를 보내지 않으며 수동 일정 detail은 manual_detail에 그대로 저장한다. 이후 KAN-41에서 담당자 ID 입력이 추가되면 member.name 우선 및 충돌 검증을 적용한다. 이름만으로 member를 자동 연결하지 않는다. 카드 원천 title과 목적, 과제 원천 name과 submission_type 변경은 배치/동기화에서 함께 반영한다.
@@ -345,7 +345,7 @@ KAN-27의 완료 조건은 문서 공유와 팀 리뷰 후 확정이다. 현재�
 [2026-09-07 hks0827 리뷰](https://github.com/lab-calendar/lab-calendar-backend/pull/5#pullrequestreview-5132329155)의 7건을 2026-09-08 반영했다.
 
 1. category.code: project / lab / card / personal, API key/categoryKey로 전달.
-2. event.source: MANUAL / AUTO_GENERATED / GOOGLE_SYNC.
+2. event.source: MANUAL / AUTO_GENERATED / CARD_IMPORT.
 3. 저장·응답·조회 날짜 양 끝 포함, FullCalendar 경계만 변환.
 4. 리드타임 API leadTimeDays(일), 프론트 전환은 후속 연동 필요.
 5. title_template 제거, 제목과 부가정보 분리.

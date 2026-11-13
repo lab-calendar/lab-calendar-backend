@@ -37,7 +37,7 @@ PR #5 리뷰에서 제기한 항목들이 KAN-27 설계 문서에 반영되어 *
 | 항목 | 확정값 | 비고 |
 | --- | --- | --- |
 | 카테고리 키 | `project` / `lab` / `card` / `personal` | DB `code` 를 API 에서 `key`, 일정에서는 `categoryKey` 로 반환 |
-| 일정 출처 | `MANUAL` / `AUTO_GENERATED` / `GOOGLE_SYNC` | |
+| 일정 출처 | `MANUAL` / `AUTO_GENERATED` | `CARD_IMPORT`/ `CARD_IMPORT` | |
 | 날짜 범위 | **DB · API · 조회 파라미터 모두 양끝 포함** | 서버는 `endDate` 를 더하거나 빼지 않습니다 |
 | 리드타임 | **`leadTimeDays`(일)**, 0~182 정수, 기본 21 | 7의 배수가 아닌 값도 허용 — **프론트 전환 필요, 3절** |
 | 카테고리 색상 | **서버가 내려주지 않음** | 프론트 디자인 토큰에서 관리 |
@@ -219,7 +219,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | `categoryKey` | string | ✅ | `project` \| `lab` \| `card` \| `personal` |
 | `memo` | string \| null | | |
 | `participants` | string[] | ✅ | `position` 순 이름 배열. 빈 배열 허용 |
-| `source` | string | ✅ | `MANUAL` \| `AUTO_GENERATED` \| `GOOGLE_SYNC` |
+| `source` | string | ✅ | `MANUAL` \| `AUTO_GENERATED` | `CARD_IMPORT`\| `CARD_IMPORT` |
 
 ### 6.2 `detail` 조합
 
@@ -236,7 +236,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | 일정 종류 | `title` | `detail` |
 | --- | --- | --- |
 | AUTO_GENERATED | `research_project.name` | `research_project.submission_type` |
-| GOOGLE_SYNC | `card_expense.card_name` | `card_expense.purpose` |
+| CARD_IMPORT | `card_expense.card_name` | `card_expense.purpose` |
 | MANUAL (담당자 연결된 lab) | `event.title` | `member.name` |
 | MANUAL (그 외) | `event.title` | `event.manual_detail` |
 
@@ -249,8 +249,8 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 | `source` | 프론트 동작 |
 | --- | --- |
 | `MANUAL` | 수정·삭제·드래그 가능 |
-| `AUTO_GENERATED` | 버튼 숨김. "과제 관리에서 종료일/리드타임을 바꾸세요" 안내 |
-| `GOOGLE_SYNC` | 버튼 숨김. "원본 문서를 수정하세요" 안내 |
+| `AUTO_GENERATED` | `CARD_IMPORT`| 버튼 숨김. "과제 관리에서 종료일/리드타임을 바꾸세요" 안내 |
+| `CARD_IMPORT` | 버튼 숨김. "원본 문서를 수정하세요" 안내 |
 
 서버도 같은 규칙으로 막습니다(설계 문서 반영 완료). 프론트에서 감추는 건 편의일 뿐 정합성 경계가 아닙니다.
 
@@ -267,7 +267,7 @@ KAN-29에서는 필드 오류가 없으면 `fieldErrors: {}`를 반환하고, �
 
 **응답**: `{ "data": [ 일정 객체, ... ] }` — 기간에 **겹치는** 일정을 모두 포함합니다.
 
-**VIEWER 등급**은 서버가 `card` 카테고리와 `GOOGLE_SYNC` 출처 일정을 제외해 주세요.
+**VIEWER 등급**은 서버가 `card` 카테고리와 `CARD_IMPORT` 출처 일정을 제외해 주세요.
 
 ### 6.5 POST /api/events
 

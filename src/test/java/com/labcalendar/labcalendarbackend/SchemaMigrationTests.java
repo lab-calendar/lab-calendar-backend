@@ -21,7 +21,7 @@ class SchemaMigrationTests {
 
     @Test
     void startupMigratesAndRestartDoesNotRepeatSeedData() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.004");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1.1.0.005");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForList("SELECT code FROM category ORDER BY sort_order", String.class))
                 .containsExactly("project", "lab", "card", "personal");
@@ -41,6 +41,26 @@ class SchemaMigrationTests {
         rollback(() -> assertCheckViolation(() -> jdbc.update(
                 "INSERT INTO category (code,name,sort_order,created_at,updated_at)"
                         + " VALUES ('made-up','없는 코드',4,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")));
+    }
+
+    /**
+     * KAN-76 renamed {@code GOOGLE_SYNC} to {@code CARD_IMPORT}, which meant dropping and
+     * re-adding {@code ck_event_source}.
+     *
+     * <p>A constraint that failed to come back would let any string into the column, and the
+     * old name would keep working — so the rename would look done while new rows drifted back.
+     * Assert both directions: the new value is accepted and the old one is not.
+     */
+    @Test
+    void eventSourceListMovedToCardImportAndStillRejectsTheOldName() {
+        rollback(() -> {
+            insertCard(311, "doc", "RowZ");
+            insertManual(311, "2026-09-08", "2026-09-08");
+            jdbc.update("UPDATE event SET category_id=(SELECT id FROM category WHERE code='card'),"
+                    + "source='CARD_IMPORT',card_expense_id=311 WHERE id=311");
+
+            assertCheckViolation(() -> jdbc.update("UPDATE event SET source='GOOGLE_SYNC' WHERE id=311"));
+        });
     }
 
     @Test
@@ -80,9 +100,9 @@ class SchemaMigrationTests {
             assertThatThrownBy(() -> insertCard(304, "doc", "RowA"))
                     .isInstanceOf(DataIntegrityViolationException.class);
             insertManual(301, "2026-09-08", "2026-09-08");
-            jdbc.update("UPDATE event SET category_id=(SELECT id FROM category WHERE code='card'),source='GOOGLE_SYNC',card_expense_id=301 WHERE id=301");
+            jdbc.update("UPDATE event SET category_id=(SELECT id FROM category WHERE code='card'),source='CARD_IMPORT',card_expense_id=301 WHERE id=301");
             insertManual(302, "2026-09-08", "2026-09-08");
-            assertThatThrownBy(() -> jdbc.update("UPDATE event SET source='GOOGLE_SYNC',card_expense_id=301 WHERE id=302"))
+            assertThatThrownBy(() -> jdbc.update("UPDATE event SET source='CARD_IMPORT',card_expense_id=301 WHERE id=302"))
                     .isInstanceOf(DataIntegrityViolationException.class);
         });
     }
